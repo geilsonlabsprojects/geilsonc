@@ -35,7 +35,7 @@ export type PolicyId = (typeof POLICIES)[number]["id"];
 const ENDPOINT = "https://router.huggingface.co/v1/chat/completions";
 
 export class HFError extends Error {
-  status?: number;
+  status?: number | undefined;
   constructor(message: string, status?: number) {
     super(message);
     this.status = status;
@@ -59,7 +59,7 @@ export interface StreamOptions {
   model: string;
   policy: PolicyId;
   messages: { role: ChatRole; content: string }[];
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
   onToken: (chunk: string) => void;
 }
 
@@ -77,7 +77,7 @@ export async function streamChatCompletion({
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    signal,
+    signal: signal ?? null,
     body: JSON.stringify({
       model: `${model}:${policy}`,
       messages,

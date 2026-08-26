@@ -1,24 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ChatWindow } from "@/components/hub/ChatWindow";
+import { HubProvider } from "@/lib/hub-store";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Hub de IA Universal — Chat com modelos Hugging Face" },
+      {
+        name: "description",
+        content:
+          "Converse com modelos open source (GPT-OSS, DeepSeek R1, Mistral, Llama) via Inference Providers da Hugging Face, com streaming em tempo real e histórico local.",
+      },
+      { property: "og:title", content: "Hub de IA Universal" },
+      {
+        property: "og:description",
+        content:
+          "Chatbot avançado com múltiplos modelos open source da Hugging Face, streaming de tokens e histórico salvo no navegador.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <HubProvider>
+      <ChatWindow />
+    </HubProvider>
   );
 }
