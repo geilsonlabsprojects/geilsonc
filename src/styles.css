@@ -96,6 +96,12 @@
   --sidebar-accent-foreground: oklch(0.96 0.005 250);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.63 0.17 254);
+  --studio: oklch(0.66 0.19 305);
+  --studio-foreground: oklch(0.14 0.02 265);
+  --files: oklch(0.72 0.16 158);
+  --files-foreground: oklch(0.14 0.02 265);
+  --compare: oklch(0.78 0.15 85);
+  --compare-foreground: oklch(0.14 0.02 265);
   --surface-glow: radial-gradient(
     120% 90% at 50% 0%,
     oklch(0.63 0.17 254 / 0.16) 0%,
@@ -104,9 +110,16 @@
 }
 
 @theme inline {
+  --color-studio: var(--studio);
+  --color-studio-foreground: var(--studio-foreground);
+  --color-files: var(--files);
+  --color-files-foreground: var(--files-foreground);
+  --color-compare: var(--compare);
+  --color-compare-foreground: var(--compare-foreground);
   --animate-message-in: message-in 0.28s ease-out both;
   --animate-caret: caret 1s steps(2) infinite;
 }
+
 
 @keyframes message-in {
   from {
