@@ -49,11 +49,8 @@ export function ChatHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
         </SelectTrigger>
         <SelectContent>
           {POLICIES.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              <span className="flex flex-col items-start">
-                <span>{p.label}</span>
-                <span className="text-xs text-muted-foreground">{p.hint}</span>
-              </span>
+            <SelectItem key={p.id} value={p.id} title={p.hint}>
+              {p.label}
             </SelectItem>
           ))}
         </SelectContent>
