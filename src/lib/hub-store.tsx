@@ -77,8 +77,9 @@ export function HubProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = readJSON<Conversation[]>(KEYS.conversations, []);
     const list = stored.length ? stored : [newConversation()];
+    const first = list[0]!;
     setConversations(list);
-    setActiveId(list[0].id);
+    setActiveId(first.id);
     setTokenState(localStorage.getItem(KEYS.token) ?? "");
     setModelState(localStorage.getItem(KEYS.model) ?? HF_MODELS[0].id);
     setPolicyState((localStorage.getItem(KEYS.policy) as PolicyId) ?? "fastest");
@@ -128,7 +129,8 @@ export function HubProvider({ children }: { children: ReactNode }) {
     setConversations((prev) => {
       const next = prev.filter((c) => c.id !== id);
       const list = next.length ? next : [newConversation()];
-      setActiveId((cur) => (cur === id ? list[0].id : cur));
+      const first = list[0]!;
+      setActiveId((cur) => (cur === id ? first.id : cur));
       return list;
     });
   }, []);
