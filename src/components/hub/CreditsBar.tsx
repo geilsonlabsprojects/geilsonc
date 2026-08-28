@@ -12,12 +12,17 @@ export function CreditsBar() {
     return () => clearInterval(t);
   }, []);
 
-  if (!profile) return null;
-
-  const next =
-    new Date(profile.last_renewal_at).getTime() + profile.renewal_interval_seconds * 1000;
+  const next = profile
+    ? new Date(profile.last_renewal_at).getTime() + profile.renewal_interval_seconds * 1000
+    : 0;
   const remaining = next - now;
-  useEffectRefresh(remaining, refreshProfile);
+  const due = Boolean(profile) && remaining <= 0;
+
+  useEffect(() => {
+    if (due) void refreshProfile();
+  }, [due, refreshProfile]);
+
+  if (!profile) return null;
 
   const pct = Math.max(
     0,
@@ -31,17 +36,16 @@ export function CreditsBar() {
         <span className="font-medium">
           {profile.current_credits}/{profile.base_credits} energia
         </span>
-        <span className="ml-auto text-muted-foreground">{formatCountdown(remaining)}</span>
+        <span className="ml-auto text-muted-foreground">
+          {due ? "recarregando..." : formatCountdown(remaining)}
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
-}
-
-function useEffectRefresh(remaining: number, refresh: () => Promise<void>) {
-  useEffect(() => {
-    if (remaining <= 0) void refresh();
-  }, [remaining <= 0, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 }
