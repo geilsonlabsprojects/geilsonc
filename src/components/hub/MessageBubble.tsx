@@ -1,16 +1,10 @@
-import { Bot, User } from "lucide-react";
+import { Bot, Paperclip, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "@/lib/hf";
+import type { MessageRow } from "@/lib/hub-store";
 
-export function MessageBubble({
-  message,
-  pending,
-}: {
-  message: ChatMessage;
-  pending?: boolean;
-}) {
+export function MessageBubble({ message, pending }: { message: MessageRow; pending?: boolean }) {
   const isUser = message.role === "user";
 
   return (
@@ -37,6 +31,19 @@ export function MessageBubble({
             : "border border-border bg-card text-card-foreground rounded-tl-sm",
         )}
       >
+        {message.attachment_url ? (
+          <img
+            src={message.attachment_url}
+            alt={message.attachment_name ?? "Anexo enviado"}
+            className="mb-2 max-h-56 rounded-lg border border-border object-contain"
+          />
+        ) : message.attachment_name ? (
+          <p className="mb-2 flex items-center gap-1.5 text-xs opacity-80">
+            <Paperclip className="size-3" />
+            {message.attachment_name}
+          </p>
+        ) : null}
+
         {isUser ? (
           <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
         ) : message.content ? (
