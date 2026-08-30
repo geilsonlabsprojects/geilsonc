@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { IMAGE_MODELS } from "@/lib/hf";
+import { IMAGE_MODELS } from "@/lib/ai";
 import { useHub } from "@/lib/hub-store";
 
 const IDEAS = [
@@ -37,7 +37,7 @@ export function ImageStudio() {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Galeria de Imagens</h2>
           <p className="text-sm text-muted-foreground">
-            Text-to-image via Inference Providers da Hugging Face.
+            Gere imagens pelos modelos inclusos do Hub.
           </p>
         </div>
       </header>
@@ -137,7 +137,12 @@ export function ImageStudio() {
               key={img.id}
               className="group relative overflow-hidden rounded-xl border border-border bg-card"
             >
-              <img src={img.dataUrl} alt={img.prompt} className="aspect-square w-full object-cover" loading="lazy" />
+              <img
+                src={img.dataUrl}
+                alt={img.prompt}
+                className="aspect-square w-full object-cover"
+                loading="lazy"
+              />
               <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-background/85 p-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                   {img.prompt}
