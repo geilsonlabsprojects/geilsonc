@@ -3,6 +3,7 @@ import { AlertTriangle, Bot, Loader2 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useHub } from "@/lib/hub-store";
 import { AuthGate } from "./AuthGate";
+import { AdminDashboard } from "./AdminDashboard";
 import { ChatHeader } from "./ChatHeader";
 import { ChatSidebar } from "./ChatSidebar";
 import { Composer } from "./Composer";
@@ -54,6 +55,10 @@ export function ChatWindow() {
           <div className="flex-1 overflow-y-auto">
             <ImageStudio />
           </div>
+        ) : tab === "admin" ? (
+          <div className="flex-1 overflow-y-auto">
+            <AdminDashboard />
+          </div>
         ) : (
           <>
             <div className="relative flex-1 overflow-y-auto">
@@ -67,8 +72,8 @@ export function ChatWindow() {
                     <div className="space-y-2">
                       <h1 className="text-2xl font-semibold tracking-tight">Hub de IA Universal</h1>
                       <p className="max-w-md text-sm text-muted-foreground">
-                        Converse com modelos do Hub, Hugging Face, Google Gemini, Groq e
-                        OpenRouter — escolha o provedor e o modelo no topo da tela.
+                        Converse com modelos do Hub, Hugging Face, Google Gemini, Groq e OpenRouter
+                        — escolha o provedor e o modelo no topo da tela.
                       </p>
                     </div>
                     <div className="grid w-full gap-2 sm:grid-cols-2">
