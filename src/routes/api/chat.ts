@@ -100,9 +100,21 @@ export const Route = createFileRoute("/api/chat")({
         });
         if (spendError) {
           const insufficient = spendError.message.includes("INSUFFICIENT_CREDITS");
+          const { data: profile } = insufficient
+            ? await supabase
+                .from("profiles")
+                .select("last_renewal_at,renewal_interval_seconds")
+                .eq("user_id", user.id)
+                .maybeSingle()
+            : { data: null };
+          const nextRenewal = profile
+            ? new Date(profile.last_renewal_at).getTime() + profile.renewal_interval_seconds * 1000
+            : 0;
+          const minutes = Math.max(1, Math.ceil((nextRenewal - Date.now()) / 60_000));
+          const rechargeIn = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
           return jsonError(
             insufficient
-              ? "Energia esgotada! Aguarde a recarga automática ou resgate um código."
+              ? `Energia esgotada! Sua recarga automática ocorre em ${rechargeIn}. Resgate um código para ganhar mais agora.`
               : "Não foi possível validar seus créditos.",
             insufficient ? 402 : 500,
           );
