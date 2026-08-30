@@ -1,4 +1,11 @@
-export type ProviderId = "lovable" | "openai" | "anthropic" | "google" | "groq" | "hf";
+export type ProviderId =
+  | "lovable"
+  | "hf"
+  | "google"
+  | "groq"
+  | "openrouter"
+  | "openai"
+  | "anthropic";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -10,11 +17,12 @@ export interface ProviderInfo {
 
 export const PROVIDERS: ProviderInfo[] = [
   { id: "lovable", label: "Hub (incluso)", free: true },
-  { id: "openai", label: "OpenAI", free: false, keyPlaceholder: "sk-..." },
-  { id: "anthropic", label: "Anthropic", free: false, keyPlaceholder: "sk-ant-..." },
-  { id: "google", label: "Google AI Studio", free: false, keyPlaceholder: "AIza..." },
-  { id: "groq", label: "Groq", free: false, keyPlaceholder: "gsk_..." },
-  { id: "hf", label: "Hugging Face", free: false, keyPlaceholder: "hf_..." },
+  { id: "hf", label: "Hugging Face", free: true },
+  { id: "google", label: "Google Gemini", free: true },
+  { id: "groq", label: "Groq", free: true },
+  { id: "openrouter", label: "OpenRouter", free: true },
+  { id: "openai", label: "OpenAI (sua chave)", free: false, keyPlaceholder: "sk-..." },
+  { id: "anthropic", label: "Anthropic (sua chave)", free: false, keyPlaceholder: "sk-ant-..." },
 ];
 
 export interface ModelInfo {
@@ -84,6 +92,110 @@ export const MODELS: ModelInfo[] = [
     cost: 0.03,
     vision: true,
   },
+  // Hugging Face — Inference Providers (chave no servidor)
+  {
+    id: "deepseek-ai/DeepSeek-V3-0324",
+    label: "DeepSeek V3",
+    provider: "hf",
+    hint: "Hugging Face · forte em código",
+    credits: 2,
+    cost: 0.001,
+  },
+  {
+    id: "openai/gpt-oss-120b",
+    label: "GPT-OSS 120B",
+    provider: "hf",
+    hint: "Hugging Face · generalista",
+    credits: 3,
+    cost: 0.002,
+  },
+  {
+    id: "meta-llama/Llama-3.3-70B-Instruct",
+    label: "Llama 3.3 70B",
+    provider: "hf",
+    hint: "Hugging Face · open source",
+    credits: 2,
+    cost: 0.001,
+  },
+  // Google Gemini (GEMINI_API_KEY)
+  {
+    id: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    provider: "google",
+    hint: "Google · rápido e multimodal",
+    credits: 2,
+    cost: 0.001,
+    vision: true,
+  },
+  {
+    id: "gemini-2.5-pro",
+    label: "Gemini 2.5 Pro",
+    provider: "google",
+    hint: "Google · raciocínio avançado",
+    credits: 6,
+    cost: 0.01,
+    vision: true,
+  },
+  {
+    id: "gemini-2.0-flash",
+    label: "Gemini 2.0 Flash",
+    provider: "google",
+    hint: "Google · econômico",
+    credits: 1,
+    cost: 0.0005,
+    vision: true,
+  },
+  // Groq (GROQ_API_KEY)
+  {
+    id: "llama-3.3-70b-versatile",
+    label: "Llama 3.3 70B",
+    provider: "groq",
+    hint: "Groq · ultrarrápido",
+    credits: 2,
+    cost: 0.001,
+  },
+  {
+    id: "llama-3.1-8b-instant",
+    label: "Llama 3.1 8B Instant",
+    provider: "groq",
+    hint: "Groq · o mais leve",
+    credits: 1,
+    cost: 0.0002,
+  },
+  {
+    id: "openai/gpt-oss-120b",
+    label: "GPT-OSS 120B (Groq)",
+    provider: "groq",
+    hint: "Groq · qualidade alta",
+    credits: 3,
+    cost: 0.002,
+  },
+  // OpenRouter (OPENROUTER_API_KEY)
+  {
+    id: "deepseek/deepseek-chat-v3.1",
+    label: "DeepSeek Chat V3.1",
+    provider: "openrouter",
+    hint: "OpenRouter · custo baixo",
+    credits: 2,
+    cost: 0.001,
+  },
+  {
+    id: "meta-llama/llama-3.3-70b-instruct",
+    label: "Llama 3.3 70B",
+    provider: "openrouter",
+    hint: "OpenRouter · open source",
+    credits: 2,
+    cost: 0.001,
+  },
+  {
+    id: "google/gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    provider: "openrouter",
+    hint: "OpenRouter · multimodal",
+    credits: 3,
+    cost: 0.002,
+    vision: true,
+  },
   // Bring your own key
   {
     id: "gpt-4o",
@@ -99,30 +211,6 @@ export const MODELS: ModelInfo[] = [
     label: "Claude 3.5 Sonnet (sua chave)",
     provider: "anthropic",
     hint: "Chave Anthropic própria",
-    credits: 1,
-    cost: 0,
-  },
-  {
-    id: "gemini-2.0-flash",
-    label: "Gemini 2.0 Flash (sua chave)",
-    provider: "google",
-    hint: "Chave Google própria",
-    credits: 1,
-    cost: 0,
-  },
-  {
-    id: "llama-3.3-70b-versatile",
-    label: "Llama 3.3 70B (sua chave)",
-    provider: "groq",
-    hint: "Chave Groq própria",
-    credits: 1,
-    cost: 0,
-  },
-  {
-    id: "deepseek-ai/DeepSeek-V3-0324",
-    label: "DeepSeek V3 (sua chave)",
-    provider: "hf",
-    hint: "Chave Hugging Face própria",
     credits: 1,
     cost: 0,
   },
@@ -145,8 +233,24 @@ export const IMAGE_MODELS = [
   },
 ] as const;
 
-export function findModel(id: string): ModelInfo {
-  return MODELS.find((m) => m.id === id) ?? MODELS[0]!;
+/** Unique key for a model, since some ids exist on more than one provider. */
+export function modelKey(m: ModelInfo): string {
+  return `${m.provider}:${m.id}`;
+}
+
+export function modelsForProvider(provider: ProviderId): ModelInfo[] {
+  return MODELS.filter((m) => m.provider === provider);
+}
+
+/** Accepts "provider:id" or a plain id (legacy). */
+export function findModel(key: string): ModelInfo {
+  if (key.includes(":")) {
+    const [provider, ...rest] = key.split(":");
+    const id = rest.join(":");
+    const hit = MODELS.find((m) => m.provider === provider && m.id === id);
+    if (hit) return hit;
+  }
+  return MODELS.find((m) => m.id === key) ?? MODELS[0]!;
 }
 
 export function formatCountdown(ms: number): string {
