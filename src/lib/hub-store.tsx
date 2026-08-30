@@ -10,7 +10,14 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { MODELS, findModel } from "@/lib/ai";
+import {
+  MODELS,
+  IMAGE_MODELS,
+  findModel,
+  modelKey,
+  modelsForProvider,
+  type ProviderId,
+} from "@/lib/ai";
 
 export type TabId = "chat" | "images" | "admin";
 
@@ -66,8 +73,14 @@ interface HubValue {
 
   tab: TabId;
   setTab: (t: TabId) => void;
+  /** currently selected AI provider */
+  provider: ProviderId;
+  setProvider: (p: ProviderId) => void;
+  /** currently selected model, encoded as "provider:id" */
   model: string;
   setModel: (m: string) => void;
+  imageModel: string;
+  setImageModel: (m: string) => void;
 
   chats: ChatRow[];
   activeChatId: string | null;
@@ -83,7 +96,7 @@ interface HubValue {
   images: ImageRow[];
   imageLoading: boolean;
   imageError: string | null;
-  createImage: (prompt: string, model: string) => Promise<void>;
+  createImage: (prompt: string, model?: string) => Promise<void>;
   deleteImage: (id: string) => Promise<void>;
 
   redeemCode: (code: string) => Promise<string>;
@@ -91,6 +104,7 @@ interface HubValue {
 
 const HubContext = createContext<HubValue | null>(null);
 const MODEL_KEY = "hub.model";
+const IMAGE_MODEL_KEY = "hub.imageModel";
 
 export function HubProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -99,7 +113,8 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [tab, setTab] = useState<TabId>("chat");
-  const [model, setModelState] = useState<string>(MODELS[0]!.id);
+  const [model, setModelState] = useState<string>(modelKey(MODELS[0]!));
+  const [imageModel, setImageModelState] = useState<string>(IMAGE_MODELS[0].id);
 
   const [chats, setChats] = useState<ChatRow[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -123,6 +138,25 @@ export function HubProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setImageModel = useCallback((m: string) => {
+    setImageModelState(m);
+    try {
+      localStorage.setItem(IMAGE_MODEL_KEY, m);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const provider = findModel(model).provider;
+
+  const setProvider = useCallback(
+    (p: ProviderId) => {
+      const first = modelsForProvider(p)[0];
+      if (first) setModel(modelKey(first));
+    },
+    [setModel],
+  );
+
   const refreshProfile = useCallback(async () => {
     const { data } = await supabase.rpc("sync_credits");
     if (data) setProfile(data as unknown as Profile);
@@ -131,7 +165,10 @@ export function HubProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(MODEL_KEY);
-      if (stored && MODELS.some((m) => m.id === stored)) setModelState(stored);
+      if (stored && MODELS.some((m) => modelKey(m) === stored)) setModelState(stored);
+      const storedImage = localStorage.getItem(IMAGE_MODEL_KEY);
+      if (storedImage && IMAGE_MODELS.some((m) => m.id === storedImage))
+        setImageModelState(storedImage);
     } catch {
       /* ignore */
     }
@@ -394,7 +431,8 @@ export function HubProvider({ children }: { children: ReactNode }) {
   );
 
   const createImage = useCallback(
-    async (prompt: string, imageModel: string) => {
+    async (prompt: string, chosenModel?: string) => {
+      const imageModelId = chosenModel ?? imageModel;
       if (!prompt.trim() || imageLoading || !user) return;
       setImageError(null);
       setImageLoading(true);
@@ -406,7 +444,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
           },
-          body: JSON.stringify({ prompt, model: imageModel }),
+          body: JSON.stringify({ prompt, model: imageModelId }),
         });
         const json = (await res.json()) as { image?: ImageRow; error?: string };
         if (!res.ok || !json.image) throw new Error(json.error ?? "Falha ao gerar a imagem.");
@@ -419,7 +457,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
         setImageLoading(false);
       }
     },
-    [imageLoading, refreshProfile, user],
+    [imageLoading, imageModel, refreshProfile, user],
   );
 
   const deleteImage = useCallback(async (id: string) => {
@@ -456,8 +494,12 @@ export function HubProvider({ children }: { children: ReactNode }) {
       signOut,
       tab,
       setTab,
+      provider,
+      setProvider,
       model,
       setModel,
+      imageModel,
+      setImageModel,
       chats,
       activeChatId,
       messages,
@@ -484,8 +526,12 @@ export function HubProvider({ children }: { children: ReactNode }) {
       refreshProfile,
       signOut,
       tab,
+      provider,
+      setProvider,
       model,
       setModel,
+      imageModel,
+      setImageModel,
       chats,
       activeChatId,
       messages,
