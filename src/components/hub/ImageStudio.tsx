@@ -107,14 +107,14 @@ export function ImageStudio() {
       ) : latest ? (
         <figure className="mt-6 animate-message-in overflow-hidden rounded-2xl border border-border bg-card">
           <img
-            src={latest.dataUrl}
+            src={latest.image_url}
             alt={latest.prompt}
             className="w-full object-contain"
             loading="lazy"
           />
           <figcaption className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-sm">
             <span className="min-w-0 flex-1 truncate text-muted-foreground">{latest.prompt}</span>
-            <a href={latest.dataUrl} download={`hub-ia-${latest.id}.png`}>
+            <a href={latest.image_url} download={`hub-ia-${latest.id}.png`}>
               <Button variant="secondary" size="sm" className="gap-2">
                 <Download className="size-4" /> Baixar
               </Button>
@@ -128,7 +128,7 @@ export function ImageStudio() {
       </h3>
       {images.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhuma imagem ainda — gere a primeira acima. As imagens ficam salvas no seu navegador.
+          Nenhuma imagem ainda — gere a primeira acima. As imagens ficam salvas na sua conta.
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -138,7 +138,7 @@ export function ImageStudio() {
               className="group relative overflow-hidden rounded-xl border border-border bg-card"
             >
               <img
-                src={img.dataUrl}
+                src={img.image_url}
                 alt={img.prompt}
                 className="aspect-square w-full object-cover"
                 loading="lazy"
@@ -147,7 +147,7 @@ export function ImageStudio() {
                 <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                   {img.prompt}
                 </span>
-                <a href={img.dataUrl} download={`hub-ia-${img.id}.png`} aria-label="Baixar imagem">
+                <a href={img.image_url} download={`hub-ia-${img.id}.png`} aria-label="Baixar imagem">
                   <Download className="size-4 text-muted-foreground hover:text-foreground" />
                 </a>
                 <button onClick={() => deleteImage(img.id)} aria-label="Excluir imagem">
