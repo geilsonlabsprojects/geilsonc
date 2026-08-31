@@ -67,7 +67,7 @@ export function ImageStudio() {
             </SelectContent>
           </Select>
           <Button
-            className="ml-auto gap-2 bg-studio text-studio-foreground hover:bg-studio/90"
+            className="w-full gap-2 bg-studio text-studio-foreground hover:bg-studio/90 sm:ml-auto sm:w-auto"
             onClick={submit}
             disabled={!prompt.trim() || imageLoading}
           >
