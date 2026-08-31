@@ -109,13 +109,21 @@ export function ImageStudio() {
           <img
             src={latest.image_url}
             alt={latest.prompt}
-            className="w-full object-contain"
+            className="mx-auto block max-h-[60vh] w-full object-contain"
             loading="lazy"
           />
-          <figcaption className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-sm">
-            <span className="min-w-0 flex-1 truncate text-muted-foreground">{latest.prompt}</span>
-            <a href={latest.image_url} download={`hub-ia-${latest.id}.png`}>
-              <Button variant="secondary" size="sm" className="gap-2">
+          <figcaption className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:gap-3">
+            <span className="min-w-0 flex-1 text-muted-foreground line-clamp-2 sm:truncate">
+              {latest.prompt}
+            </span>
+            <a
+              href={latest.image_url}
+              download={`hub-ia-${latest.id}.png`}
+              className="shrink-0"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="secondary" size="sm" className="w-full gap-2 sm:w-auto">
                 <Download className="size-4" /> Baixar
               </Button>
             </a>
