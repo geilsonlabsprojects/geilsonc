@@ -159,12 +159,23 @@ export function AdminDashboard() {
   };
 
   const copyCode = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success("Código copiado.");
-    } catch {
-      toast.error("Não foi possível copiar o código.");
+    const ok = await copyText(code);
+    if (ok) toast.success(`Código copiado: ${code}`);
+    else toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
+  };
+
+  const copyAll = async () => {
+    const list = codes
+      .filter((c) => !c.is_used)
+      .map((c) => c.code)
+      .join("\n");
+    if (!list) {
+      toast.error("Nenhum código ativo para copiar.");
+      return;
     }
+    const ok = await copyText(list);
+    if (ok) toast.success("Todos os códigos ativos copiados.");
+    else toast.error("Não foi possível copiar a lista.");
   };
 
   const metrics = [
