@@ -50,9 +50,9 @@ export function ImageStudio() {
           placeholder="Descreva a imagem que você quer gerar..."
           className="w-full resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={imageModel} onValueChange={setImageModel}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Modelo" />
             </SelectTrigger>
             <SelectContent>
