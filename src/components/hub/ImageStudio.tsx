@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { IMAGE_MODELS } from "@/lib/ai";
 import { useHub } from "@/lib/hub-store";
+import { ErrorReportButton } from "./ErrorReportButton";
 
 const IDEAS = [
   "Retrato cinematográfico de uma astronauta ao amanhecer, luz suave",
@@ -18,8 +19,16 @@ const IDEAS = [
 ];
 
 export function ImageStudio() {
-  const { images, imageLoading, imageError, imageModel, setImageModel, createImage, deleteImage } =
-    useHub();
+  const {
+    images,
+    imageLoading,
+    imageError,
+    imageModel,
+    setImageModel,
+    createImage,
+    deleteImage,
+    profile,
+  } = useHub();
   const [prompt, setPrompt] = useState("");
   const latest = images[0];
 
@@ -56,8 +65,12 @@ export function ImageStudio() {
               <SelectValue placeholder="Modelo" />
             </SelectTrigger>
             <SelectContent>
-              {IMAGE_MODELS.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
+              {IMAGE_MODELS.map((m, index) => (
+                <SelectItem
+                  key={m.id}
+                  value={m.id}
+                  disabled={Boolean(profile?.is_guest && index > 0)}
+                >
                   <span className="flex flex-col items-start">
                     <span>{m.label}</span>
                     <span className="text-xs text-muted-foreground">{m.hint}</span>
@@ -93,10 +106,20 @@ export function ImageStudio() {
         ))}
       </div>
 
+      {profile?.is_guest ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Acesso sem conta: até 5 imagens com o modelo básico. Crie uma conta gratuita para salvar
+          mais e usar o modelo avançado.
+        </p>
+      ) : null}
+
       {imageError ? (
         <div className="mt-5 flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm animate-message-in">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-          <p>{imageError}</p>
+          <div>
+            <p>{imageError}</p>
+            <ErrorReportButton error={imageError} area="images" />
+          </div>
         </div>
       ) : null}
 
@@ -107,14 +130,14 @@ export function ImageStudio() {
       ) : latest ? (
         <figure className="mt-6 animate-message-in overflow-hidden rounded-2xl border border-border bg-card">
           <img
-            src={latest.dataUrl}
+            src={latest.image_url}
             alt={latest.prompt}
             className="w-full object-contain"
             loading="lazy"
           />
           <figcaption className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-sm">
             <span className="min-w-0 flex-1 truncate text-muted-foreground">{latest.prompt}</span>
-            <a href={latest.dataUrl} download={`hub-ia-${latest.id}.png`}>
+            <a href={latest.image_url} download={`hub-ia-${latest.id}.png`}>
               <Button variant="secondary" size="sm" className="gap-2">
                 <Download className="size-4" /> Baixar
               </Button>
@@ -138,7 +161,7 @@ export function ImageStudio() {
               className="group relative overflow-hidden rounded-xl border border-border bg-card"
             >
               <img
-                src={img.dataUrl}
+                src={img.image_url}
                 alt={img.prompt}
                 className="aspect-square w-full object-cover"
                 loading="lazy"
@@ -147,7 +170,11 @@ export function ImageStudio() {
                 <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                   {img.prompt}
                 </span>
-                <a href={img.dataUrl} download={`hub-ia-${img.id}.png`} aria-label="Baixar imagem">
+                <a
+                  href={img.image_url}
+                  download={`hub-ia-${img.id}.png`}
+                  aria-label="Baixar imagem"
+                >
                   <Download className="size-4 text-muted-foreground hover:text-foreground" />
                 </a>
                 <button onClick={() => deleteImage(img.id)} aria-label="Excluir imagem">

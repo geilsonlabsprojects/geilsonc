@@ -29,6 +29,8 @@ export interface Profile {
   current_credits: number;
   last_renewal_at: string;
   renewal_interval_seconds: number;
+  is_guest?: boolean;
+  guest_renewal_count?: number;
 }
 
 export interface ChatRow {
@@ -196,7 +198,10 @@ export function HubProvider({ children }: { children: ReactNode }) {
       await supabase.rpc("claim_first_admin");
       const [{ data: roles }, { data: chatRows }, { data: imgRows }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("chats").select("id,title,updated_at").order("updated_at", { ascending: false }),
+        supabase
+          .from("chats")
+          .select("id,title,updated_at")
+          .order("updated_at", { ascending: false }),
         supabase
           .from("generated_images")
           .select("id,prompt,model,image_url,created_at")
@@ -250,15 +255,12 @@ export function HubProvider({ children }: { children: ReactNode }) {
     setTab("chat");
   }, []);
 
-  const deleteChat = useCallback(
-    async (id: string) => {
-      await supabase.from("messages").delete().eq("chat_id", id);
-      await supabase.from("chats").delete().eq("id", id);
-      setChats((prev) => prev.filter((c) => c.id !== id));
-      setActiveChatId((cur) => (cur === id ? null : cur));
-    },
-    [],
-  );
+  const deleteChat = useCallback(async (id: string) => {
+    await supabase.from("messages").delete().eq("chat_id", id);
+    await supabase.from("chats").delete().eq("id", id);
+    setChats((prev) => prev.filter((c) => c.id !== id));
+    setActiveChatId((cur) => (cur === id ? null : cur));
+  }, []);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -415,7 +417,10 @@ export function HubProvider({ children }: { children: ReactNode }) {
             model: findModel(model).id,
           });
         }
-        await supabase.from("chats").update({ updated_at: new Date().toISOString() }).eq("id", chatId);
+        await supabase
+          .from("chats")
+          .update({ updated_at: new Date().toISOString() })
+          .eq("id", chatId);
         void refreshProfile();
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
@@ -465,23 +470,20 @@ export function HubProvider({ children }: { children: ReactNode }) {
     setImages((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const redeemCode = useCallback(
-    async (code: string) => {
-      const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
-        _code: code.trim(),
-      });
-      if (rpcError) {
-        throw new Error(
-          rpcError.message.includes("INVALID_CODE")
-            ? "Código inválido, expirado ou já utilizado."
-            : "Não foi possível resgatar o código.",
-        );
-      }
-      if (data) setProfile(data as unknown as Profile);
-      return "Código resgatado com sucesso!";
-    },
-    [],
-  );
+  const redeemCode = useCallback(async (code: string) => {
+    const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
+      _code: code.trim(),
+    });
+    if (rpcError) {
+      throw new Error(
+        rpcError.message.includes("INVALID_CODE")
+          ? "Código inválido, expirado ou já utilizado."
+          : "Não foi possível resgatar o código.",
+      );
+    }
+    if (data) setProfile(data as unknown as Profile);
+    return "Código resgatado com sucesso!";
+  }, []);
 
   const value = useMemo<HubValue>(
     () => ({

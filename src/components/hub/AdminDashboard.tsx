@@ -21,6 +21,7 @@ interface AppSettings {
   min_interval_seconds: number;
   max_interval_seconds: number;
   default_base_credits: number;
+  system_prompt: string;
 }
 
 interface AccessCode {
@@ -47,6 +48,8 @@ const initialSettings: AppSettings = {
   min_interval_seconds: 7200,
   max_interval_seconds: 18000,
   default_base_credits: 100,
+  system_prompt:
+    "Você é o assistente do Hub de IA Universal. Responda de forma clara, útil e em markdown quando ajudar.",
 };
 
 const asStats = (value: unknown): AdminStats => {
@@ -86,7 +89,7 @@ export function AdminDashboard() {
       supabase.rpc("admin_stats"),
       supabase
         .from("app_settings")
-        .select("min_interval_seconds,max_interval_seconds,default_base_credits")
+        .select("min_interval_seconds,max_interval_seconds,default_base_credits,system_prompt")
         .eq("id", 1)
         .maybeSingle(),
       supabase
@@ -134,6 +137,7 @@ export function AdminDashboard() {
       _min: min,
       _max: max,
       _default_base: base,
+      _system_prompt: settings.system_prompt,
     });
     setSaving(false);
     if (error) {
@@ -254,9 +258,25 @@ export function AdminDashboard() {
               }
             />
           </div>
+          <div className="mt-5 space-y-1.5">
+            <Label htmlFor="system-prompt">Prompt de sistema global</Label>
+            <textarea
+              id="system-prompt"
+              value={settings.system_prompt}
+              onChange={(event) =>
+                setSettings((current) => ({ ...current, system_prompt: event.target.value }))
+              }
+              rows={5}
+              maxLength={12000}
+              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Aplicado a todas as novas mensagens, sem expor chaves ou regras internas.
+            </p>
+          </div>
           <Button className="mt-4 gap-2" onClick={() => void saveSettings()} disabled={saving}>
             <Save className="size-4" />
-            {saving ? "Salvando..." : "Salvar"}
+            {saving ? "Salvando..." : "Salvar configurações"}
           </Button>
         </div>
 

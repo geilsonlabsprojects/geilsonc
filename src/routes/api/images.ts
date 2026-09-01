@@ -18,6 +18,23 @@ export const Route = createFileRoute("/api/images")({
         const prompt = (body.prompt ?? "").trim();
         if (!prompt) return jsonError("Descreva a imagem que você quer gerar.", 400);
         const model = IMAGE_MODELS.find((m) => m.id === body.model) ?? IMAGE_MODELS[0];
+        const isGuest = Boolean(user.is_anonymous);
+        if (isGuest && model !== IMAGE_MODELS[0])
+          return jsonError(
+            "No acesso sem conta, use o modelo de imagem básico. Crie uma conta gratuita para liberar modelos avançados.",
+            403,
+          );
+        if (isGuest) {
+          const { count, error: countError } = await supabase
+            .from("generated_images")
+            .select("id", { count: "exact", head: true });
+          if (countError) return jsonError("Não foi possível verificar o limite do Estúdio.", 500);
+          if ((count ?? 0) >= 5)
+            return jsonError(
+              "O limite de 5 imagens do acesso sem conta foi atingido. Crie uma conta gratuita para continuar.",
+              403,
+            );
+        }
 
         const { error: spendError } = await supabase.rpc("spend_credits", {
           _amount: model.credits,

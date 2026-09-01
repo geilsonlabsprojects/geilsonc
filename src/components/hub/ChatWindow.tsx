@@ -7,6 +7,7 @@ import { AdminDashboard } from "./AdminDashboard";
 import { ChatHeader } from "./ChatHeader";
 import { ChatSidebar } from "./ChatSidebar";
 import { Composer } from "./Composer";
+import { ErrorReportButton } from "./ErrorReportButton";
 import { ImageStudio } from "./ImageStudio";
 import { MessageBubble } from "./MessageBubble";
 
@@ -103,7 +104,10 @@ export function ChatWindow() {
                 {error ? (
                   <div className="mt-5 flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-foreground animate-message-in">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-                    <p>{error}</p>
+                    <div>
+                      <p>{error}</p>
+                      <ErrorReportButton error={error} area="chat" />
+                    </div>
                   </div>
                 ) : null}
 

@@ -35,11 +35,17 @@ export function CreditsBar() {
         <Zap className="size-3.5 text-primary" />
         <span className="font-medium">
           {profile.current_credits}/{profile.base_credits} energia
+          {profile.is_guest ? " · visitante" : ""}
         </span>
         <span className="ml-auto text-muted-foreground">
           {due ? "recarregando..." : formatCountdown(remaining)}
         </span>
       </div>
+      {profile.is_guest ? (
+        <p className="text-[10px] text-muted-foreground">
+          Recargas gratuitas restantes: {Math.max(0, 5 - (profile.guest_renewal_count ?? 0))}
+        </p>
+      ) : null}
       <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
         <div
           className="h-full rounded-full bg-primary transition-all"

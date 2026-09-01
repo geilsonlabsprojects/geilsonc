@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Loader2 } from "lucide-react";
+import { Bot, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,16 @@ export function AuthGate() {
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
+  };
+
+  const continueAsGuest = async () => {
+    setBusy(true);
+    setError(null);
+    const { error: err } = await supabase.auth.signInAnonymously();
+    if (err) {
+      setError("O acesso sem conta não está disponível agora. Entre com e-mail ou Google.");
+    }
+    setBusy(false);
   };
 
   return (
@@ -77,6 +87,18 @@ export function AuthGate() {
         <Button variant="secondary" className="w-full" onClick={() => void google()}>
           Continuar com Google
         </Button>
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={() => void continueAsGuest()}
+          disabled={busy}
+        >
+          <Sparkles className="size-4" /> Experimentar sem conta
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          Acesso sem conta: até 5 recargas automáticas, modelos básicos e geração de imagens
+          limitada.
+        </p>
         <button
           className="w-full text-xs text-muted-foreground hover:text-foreground"
           onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
