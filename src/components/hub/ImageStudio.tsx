@@ -47,9 +47,9 @@ export function ImageStudio() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-6 md:px-6">
-      <header className="mb-6 flex items-center gap-3">
-        <div className="flex size-11 items-center justify-center rounded-xl border border-border bg-studio/15 text-studio">
+    <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <header className="mb-5 flex items-center gap-3 sm:mb-6">
+        <div className="flex size-11 items-center justify-center rounded-xl border border-border bg-studio/15 text-studio sm:size-12">
           <Wand2 className="size-5" />
         </div>
         <div>
@@ -58,17 +58,17 @@ export function ImageStudio() {
         </div>
       </header>
 
-      <div className="rounded-2xl border border-border bg-card p-3 shadow-lg">
+      <div className="rounded-[26px] border border-border/80 bg-card/85 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.22)] backdrop-blur sm:p-4">
         <textarea
           rows={3}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Descreva a imagem que você quer gerar..."
-          className="w-full resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
+          className="w-full resize-none rounded-2xl border border-border/70 bg-background/70 px-3 py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/60"
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={imageModel} onValueChange={setImageModel}>
-            <SelectTrigger className="w-full text-xs sm:w-[200px]">
+            <SelectTrigger className="w-full text-xs sm:w-[220px]">
               <SelectValue placeholder="Modelo" />
             </SelectTrigger>
             <SelectContent>
@@ -85,7 +85,7 @@ export function ImageStudio() {
             </SelectContent>
           </Select>
           <Button
-            className="w-full gap-2 bg-studio text-studio-foreground hover:bg-studio/90 sm:ml-auto sm:w-auto sm:text-xs"
+            className="w-full gap-2 bg-studio text-studio-foreground shadow-sm hover:bg-studio/90 sm:ml-auto sm:w-auto sm:text-xs"
             onClick={submit}
             disabled={!prompt.trim() || imageLoading}
             size="sm"
@@ -192,11 +192,11 @@ export function ImageStudio() {
           {searchFilter || modelFilter ? "Nenhuma imagem encontrada com esses filtros." : "Nenhuma imagem ainda — gere a primeira acima."}
         </p>
       ) : (
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 gap-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredImages.map((img) => (
             <li
               key={img.id}
-              className="group relative overflow-hidden rounded-xl border border-border bg-card"
+              className="group relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md"
             >
               <img
                 src={img.image_url}

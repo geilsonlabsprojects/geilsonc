@@ -10,22 +10,22 @@ export function MessageBubble({ message, pending }: { message: MessageRow; pendi
   return (
     <div
       className={cn(
-        "flex w-full gap-3 animate-message-in",
+        "flex w-full max-w-full gap-2.5 sm:gap-3 animate-message-in",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
     >
       <div
         className={cn(
-          "mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border",
+          "mt-1 flex size-7 shrink-0 items-center justify-center rounded-lg border border-border sm:size-8",
           isUser ? "bg-secondary text-secondary-foreground" : "bg-primary/15 text-primary",
         )}
       >
-        {isUser ? <User className="size-4" /> : <Bot className="size-4" />}
+        {isUser ? <User className="size-3.5 sm:size-4" /> : <Bot className="size-3.5 sm:size-4" />}
       </div>
 
       <div
         className={cn(
-          "max-w-[min(46rem,85%)] rounded-2xl px-4 py-3 text-sm",
+          "w-full max-w-[min(46rem,92%)] rounded-2xl px-3 py-3 text-sm sm:px-4 sm:py-3.5",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
             : "border border-border bg-card text-card-foreground rounded-tl-sm",
