@@ -30,15 +30,26 @@ export function CreditsBar() {
   );
 
   return (
-    <div className="flex min-w-[190px] flex-col gap-1 rounded-xl border border-border bg-card px-3 py-1.5">
-      <div className="flex items-center gap-2 text-xs">
-        <Zap className="size-3.5 text-primary" />
-        <span className="font-medium">
-          {profile.current_credits}/{profile.base_credits} energia
-          {profile.is_guest ? " · visitante" : ""}
+    <div
+      className="flex min-w-[190px] flex-col gap-1 rounded-xl border border-border bg-card px-2.5 py-1.5"
+      title={`${profile.current_credits} de ${profile.base_credits} de energia`}
+    >
+      <div className="flex items-center gap-1.5 text-xs">
+        <Zap className="size-3.5 shrink-0 text-primary" />
+        <span className="font-medium tabular-nums">
+          {profile.current_credits}
+          <span className="text-muted-foreground">/{profile.base_credits}</span>
         </span>
-        <span className="ml-auto text-muted-foreground">
-          {due ? "recarregando..." : formatCountdown(remaining)}
+        <span className="hidden sm:inline">energia</span>
+        {profile.is_guest ? <span className="text-muted-foreground"> · visitante</span> : null}
+        <span className="ml-2 tabular-nums text-muted-foreground sm:ml-auto">
+          {Math.round((profile.current_credits / profile.base_credits) * 100)}%
+        </span>
+      </div>
+        </span>
+        <span className="hidden sm:inline">energia</span>
+        <span className="ml-2 tabular-nums text-muted-foreground sm:ml-auto">
+          {due ? "..." : formatCountdown(remaining)}
         </span>
       </div>
       {profile.is_guest ? (
@@ -48,7 +59,7 @@ export function CreditsBar() {
       ) : null}
       <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
         <div
-          className="h-full rounded-full bg-primary transition-all"
+          className="h-full rounded-full bg-primary transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>

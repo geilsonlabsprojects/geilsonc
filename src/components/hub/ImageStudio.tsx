@@ -59,9 +59,9 @@ export function ImageStudio() {
           placeholder="Descreva a imagem que você quer gerar..."
           className="w-full resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={imageModel} onValueChange={setImageModel}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Modelo" />
             </SelectTrigger>
             <SelectContent>
@@ -80,7 +80,7 @@ export function ImageStudio() {
             </SelectContent>
           </Select>
           <Button
-            className="ml-auto gap-2 bg-studio text-studio-foreground hover:bg-studio/90"
+            className="w-full gap-2 bg-studio text-studio-foreground hover:bg-studio/90 sm:ml-auto sm:w-auto"
             onClick={submit}
             disabled={!prompt.trim() || imageLoading}
           >
@@ -132,13 +132,25 @@ export function ImageStudio() {
           <img
             src={latest.image_url}
             alt={latest.prompt}
-            className="w-full object-contain"
+            className="mx-auto block max-h-[60vh] w-full object-contain"
             loading="lazy"
           />
-          <figcaption className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-sm">
-            <span className="min-w-0 flex-1 truncate text-muted-foreground">{latest.prompt}</span>
-            <a href={latest.image_url} download={`hub-ia-${latest.id}.png`}>
-              <Button variant="secondary" size="sm" className="gap-2">
+          <figcaption className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:gap-3">
+            <span className="min-w-0 flex-1 text-muted-foreground line-clamp-2 sm:truncate">
+              {latest.prompt}
+            </span>
+            <a
+              href={latest.image_url}
+              download={`hub-ia-${latest.id}.png`}
+              className="shrink-0"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="secondary" size="sm" className="w-full gap-2 sm:w-auto">
+                <Download className="size-4" /> Baixar
+              </Button>
+            </a>
+          </figcaption>
                 <Download className="size-4" /> Baixar
               </Button>
             </a>
@@ -151,7 +163,7 @@ export function ImageStudio() {
       </h3>
       {images.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhuma imagem ainda — gere a primeira acima. As imagens ficam salvas no seu navegador.
+          Nenhuma imagem ainda — gere a primeira acima. As imagens ficam salvas na sua conta.
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

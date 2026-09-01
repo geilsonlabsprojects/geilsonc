@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { copyText } from "@/lib/clipboard";
 
 interface AdminStats {
   total_users: number;
@@ -89,7 +90,7 @@ export function AdminDashboard() {
       supabase.rpc("admin_stats"),
       supabase
         .from("app_settings")
-        .select("min_interval_seconds,max_interval_seconds,default_base_credits,system_prompt")
+.select("min_interval_seconds,max_interval_seconds,default_base_credits,system_prompt")
         .eq("id", 1)
         .maybeSingle(),
       supabase
@@ -182,12 +183,25 @@ export function AdminDashboard() {
   };
 
   const copyCode = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success("Código copiado.");
-    } catch {
-      toast.error("Não foi possível copiar o código.");
+  const copyCode = async (code: string) => {
+    const ok = await copyText(code);
+    if (ok) toast.success("Código copiado.");
+    else toast.error("Não foi possível copiar o código.");
+  };
+
+  const copyAll = async () => {
+    const list = codes
+      .filter((c) => !c.is_used)
+      .map((c) => c.code)
+      .join("\n");
+    if (!list) {
+      toast.error("Nenhum código ativo para copiar.");
+      return;
     }
+    const ok = await copyText(list);
+    if (ok) toast.success("Todos os códigos ativos copiados.");
+    else toast.error("Não foi possível copiar a lista.");
+  };
   };
 
   const metrics = [
@@ -277,6 +291,7 @@ export function AdminDashboard() {
           <Button className="mt-4 gap-2" onClick={() => void saveSettings()} disabled={saving}>
             <Save className="size-4" />
             {saving ? "Salvando..." : "Salvar configurações"}
+          </Button>
           </Button>
         </div>
 
@@ -383,33 +398,44 @@ export function AdminDashboard() {
           </div>
         </div>
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="border-b border-border px-5 py-4">
-            <h3 className="font-medium">Códigos recentes</h3>
-            <p className="text-sm text-muted-foreground">
-              Clique para copiar um código não utilizado.
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
+            <div>
+              <h3 className="font-medium">Códigos recentes</h3>
+              <p className="text-sm text-muted-foreground">
+                Clique para copiar um código não utilizado.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" className="gap-2" onClick={() => void copyAll()}>
+              <Copy className="size-4" /> Copiar ativos
+            </Button>
+          </div>
           </div>
           <div className="divide-y divide-border">
             {codes.length ? (
               codes.map((code) => (
-                <div key={code.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+                <div
+                  key={code.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm"
+                >
                   <button
-                    className="min-w-0 flex-1 truncate text-left font-mono hover:text-primary"
+                    type="button"
+                    className="flex min-w-0 items-center gap-2 font-mono break-all text-left hover:text-primary"
                     onClick={() => void copyCode(code.code)}
                     title="Copiar código"
                   >
-                    {code.code}
+                    <span className="select-all break-all">{code.code}</span>
+                    <Copy className="size-4 shrink-0 text-muted-foreground" />
                   </button>
                   <span className="text-xs text-muted-foreground">
                     +{code.instant_bonus} agora
                     {code.bonus_base_credits ? ` · +${code.bonus_base_credits} base` : ""}
                   </span>
-                  <Copy className="size-4 shrink-0 text-muted-foreground" />
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${code.is_used ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}
+                    className={`ml-auto rounded-full px-2 py-0.5 text-xs ${code.is_used ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}
                   >
                     {code.is_used ? "Usado" : "Ativo"}
                   </span>
+                </div>
                 </div>
               ))
             ) : (
@@ -418,7 +444,6 @@ export function AdminDashboard() {
           </div>
         </div>
       </section>
-
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4">
           <h3 className="font-medium">Auditoria recente</h3>

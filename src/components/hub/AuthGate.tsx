@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
+
 
 export function AuthGate() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -28,10 +30,14 @@ export function AuthGate() {
   };
 
   const google = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
+    setError(null);
+    try {
+      await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao entrar com Google");
+    }
   };
 
   const continueAsGuest = async () => {
