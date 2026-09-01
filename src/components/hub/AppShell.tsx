@@ -54,8 +54,8 @@ export function AppShell({
         <PwaInstallBanner />
 
         <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 md:px-6">
+          <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 md:px-6">
             <Button
               variant="ghost"
               size="icon"
