@@ -38,18 +38,18 @@ export function ChatWindow() {
   if (!user) return <AuthGate />;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      <aside className="hidden w-72 shrink-0 border-r border-sidebar-border md:block">
+    <div className="flex h-screen w-full overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_24%),_linear-gradient(to_bottom,_#070b14,_#0b1020_55%,_#0b1020)] text-foreground">
+      <aside className="hidden w-[280px] shrink-0 border-r border-sidebar-border bg-sidebar/80 lg:flex xl:w-[320px]">
         <ChatSidebar />
       </aside>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="w-72 p-0">
+        <SheetContent side="left" className="w-[88vw] max-w-[320px] border-r border-sidebar-border bg-sidebar p-0">
           <ChatSidebar onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-w-0 flex-1 flex-col min-h-0">
         <ChatHeader onOpenMenu={() => setMenuOpen(true)} />
 
         {tab === "images" ? (
@@ -63,16 +63,18 @@ export function ChatWindow() {
         ) : (
           <>
             <div className="relative flex-1 overflow-y-auto">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-64 surface-glow" />
-              <div className="relative mx-auto w-full max-w-3xl px-3 py-6 md:px-6">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.18),_transparent_60%)] sm:h-64" />
+              <div className="relative mx-auto w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
                 {messages.length === 0 ? (
-                  <div className="flex flex-col items-center gap-6 py-10 text-center animate-message-in">
-                    <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-primary/15 text-primary">
-                      <Bot className="size-7" />
+                  <div className="flex flex-col items-center gap-5 py-8 text-center animate-message-in sm:gap-6 sm:py-10">
+                    <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-primary/15 text-primary shadow-[0_0_25px_rgba(96,165,250,0.25)] sm:size-16">
+                      <Bot className="size-7 sm:size-8" />
                     </div>
                     <div className="space-y-2">
-                      <h1 className="text-2xl font-semibold tracking-tight">Hub de IA Universal</h1>
-                      <p className="max-w-md text-sm text-muted-foreground">
+                      <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                        Hub de IA Universal
+                      </h1>
+                      <p className="mx-auto max-w-lg text-sm text-muted-foreground">
                         Converse com modelos do Hub, Hugging Face, Google Gemini, Groq e OpenRouter
                         — escolha o provedor e o modelo no topo da tela.
                       </p>
@@ -82,7 +84,7 @@ export function ChatWindow() {
                         <button
                           key={s}
                           onClick={() => void sendMessage(s)}
-                          className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-card-foreground transition-colors hover:border-primary/60 hover:bg-accent"
+                          className="rounded-2xl border border-border/80 bg-card/80 px-3 py-3 text-left text-sm text-card-foreground shadow-sm transition-all duration-200 hover:border-primary/60 hover:bg-accent/70 hover:shadow-[0_0_0_1px_rgba(96,165,250,0.18)]"
                         >
                           {s}
                         </button>
@@ -90,7 +92,7 @@ export function ChatWindow() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-5">
+                  <div className="space-y-4 sm:space-y-5">
                     {messages.map((m, i) => (
                       <MessageBubble
                         key={m.id}

@@ -6,18 +6,18 @@ import { SettingsDialog } from "./SettingsDialog";
 export function ChatHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 md:px-6">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 sm:px-4 md:px-6">
         <Button
           variant="ghost"
           size="icon"
-          className="shrink-0 md:hidden"
+          className="shrink-0 lg:hidden"
           onClick={onOpenMenu}
           aria-label="Abrir menu"
         >
           <Menu className="size-5" />
         </Button>
-        <span className="hidden md:block" />
-        <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight sm:text-base">
+        <span className="hidden lg:block" />
+        <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight sm:text-base md:text-lg">
           Hub de IA Universal
         </h1>
         <div className="flex shrink-0 items-center gap-1.5">

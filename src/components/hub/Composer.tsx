@@ -54,8 +54,8 @@ export function Composer() {
   };
 
   return (
-    <div className="border-t border-border bg-background/85 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-6">
-      <div className="mx-auto w-full max-w-3xl space-y-2">
+    <div className="border-t border-border bg-background/85 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-4 md:px-6">
+      <div className="mx-auto w-full max-w-4xl space-y-2">
         <PromptTemplate onSelect={(p) => setValue((v) => v + "\n" + p)} />
 
         {attachment ? (
@@ -85,6 +85,7 @@ export function Composer() {
             variant="ghost"
             onClick={() => fileRef.current?.click()}
             aria-label="Anexar arquivo"
+            className="shrink-0"
           >
             <Paperclip className="size-4" />
           </Button>
@@ -98,10 +99,10 @@ export function Composer() {
             }}
             onKeyDown={onKeyDown}
             placeholder="Pergunte qualquer coisa..."
-            className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            className="max-h-[200px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
           />
           {streaming ? (
-            <Button size="icon" variant="secondary" onClick={stop} aria-label="Parar geração">
+            <Button size="icon" variant="secondary" onClick={stop} aria-label="Parar geração" className="shrink-0">
               <Square className="size-4" />
             </Button>
           ) : (
@@ -110,6 +111,7 @@ export function Composer() {
               onClick={submit}
               disabled={!value.trim() && !attachment}
               aria-label="Enviar mensagem"
+              className="shrink-0"
             >
               <ArrowUp className="size-4" />
             </Button>
