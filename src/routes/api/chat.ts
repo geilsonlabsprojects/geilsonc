@@ -87,9 +87,29 @@ export const Route = createFileRoute("/api/chat")({
         if (!user) return jsonError("Faça login para conversar.", 401);
 
         const body = (await request.json()) as Body;
+        if (!Array.isArray(body.messages) || body.messages.length === 0)
+          return jsonError("Envie ao menos uma mensagem para iniciar o chat.", 400);
         const model = findModel(body.model);
         const provider = model.provider;
         const targetModel = model.id === "auto" ? "google/gemini-3.7-flash" : model.id;
+        const { data: settings } = await supabase
+          .from("app_settings")
+          .select("system_prompt")
+          .eq("id", 1)
+          .maybeSingle();
+        const systemPrompt =
+          settings?.system_prompt ?? "Você é o assistente do Hub de IA Universal.";
+        body.messages = [
+          { role: "system", content: systemPrompt },
+          ...body.messages.filter((message) => message.role !== "system"),
+        ];
+
+        const isGuest = Boolean((user as { is_anonymous?: boolean }).is_anonymous);
+        if (isGuest && model.credits > 2)
+          return jsonError(
+            "No acesso sem conta, escolha Auto ou um modelo básico. Crie uma conta gratuita para liberar modelos avançados.",
+            403,
+          );
 
         const { error: spendError } = await supabase.rpc("spend_credits", {
           _amount: model.credits,
@@ -100,9 +120,21 @@ export const Route = createFileRoute("/api/chat")({
         });
         if (spendError) {
           const insufficient = spendError.message.includes("INSUFFICIENT_CREDITS");
+          const { data: profile } = insufficient
+            ? await supabase
+                .from("profiles")
+                .select("last_renewal_at,renewal_interval_seconds")
+                .eq("user_id", user.id)
+                .maybeSingle()
+            : { data: null };
+          const nextRenewal = profile
+            ? new Date(profile.last_renewal_at).getTime() + profile.renewal_interval_seconds * 1000
+            : 0;
+          const minutes = Math.max(1, Math.ceil((nextRenewal - Date.now()) / 60_000));
+          const rechargeIn = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
           return jsonError(
             insufficient
-              ? "Energia esgotada! Aguarde a recarga automática ou resgate um código."
+              ? `Energia esgotada! Sua recarga automática ocorre em ${rechargeIn}. Resgate um código para ganhar mais agora.`
               : "Não foi possível validar seus créditos.",
             insufficient ? 402 : 500,
           );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ComponentProps } from "react";
 import { BarChart3, Copy, KeyRound, RefreshCw, Save, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ interface AppSettings {
   min_interval_seconds: number;
   max_interval_seconds: number;
   default_base_credits: number;
+  system_prompt: string;
 }
 
 interface AccessCode {
@@ -33,10 +35,22 @@ interface AccessCode {
   expires_at: string | null;
 }
 
+interface UsageLog {
+  id: string;
+  action: string;
+  provider: string | null;
+  model: string | null;
+  credits: number;
+  cost_usd: number;
+  created_at: string;
+}
+
 const initialSettings: AppSettings = {
   min_interval_seconds: 7200,
   max_interval_seconds: 18000,
   default_base_credits: 100,
+  system_prompt:
+    "Você é o assistente do Hub de IA Universal. Responda de forma clara, útil e em markdown quando ajudar.",
 };
 
 const asStats = (value: unknown): AdminStats => {
@@ -56,6 +70,7 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const [codes, setCodes] = useState<AccessCode[]>([]);
+  const [logs, setLogs] = useState<UsageLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -70,11 +85,12 @@ export function AdminDashboard() {
       { data: statsData, error: statsError },
       { data: settingsData, error: settingsError },
       { data: codesData, error: codesError },
+      { data: logsData, error: logsError },
     ] = await Promise.all([
       supabase.rpc("admin_stats"),
       supabase
         .from("app_settings")
-        .select("min_interval_seconds,max_interval_seconds,default_base_credits")
+.select("min_interval_seconds,max_interval_seconds,default_base_credits,system_prompt")
         .eq("id", 1)
         .maybeSingle(),
       supabase
@@ -82,13 +98,19 @@ export function AdminDashboard() {
         .select("id,code,type,bonus_base_credits,instant_bonus,is_used,expires_at")
         .order("created_at", { ascending: false })
         .limit(20),
+      supabase
+        .from("usage_logs")
+        .select("id,action,provider,model,credits,cost_usd,created_at")
+        .order("created_at", { ascending: false })
+        .limit(12),
     ]);
-    if (statsError || settingsError || codesError) {
+    if (statsError || settingsError || codesError || logsError) {
       toast.error("Não foi possível carregar todos os dados administrativos.");
     }
     if (statsData) setStats(asStats(statsData));
     if (settingsData) setSettings(settingsData);
     if (codesData) setCodes(codesData);
+    if (logsData) setLogs(logsData);
     setLoading(false);
   }, []);
 
@@ -116,6 +138,7 @@ export function AdminDashboard() {
       _min: min,
       _max: max,
       _default_base: base,
+      _system_prompt: settings.system_prompt,
     });
     setSaving(false);
     if (error) {
@@ -160,9 +183,10 @@ export function AdminDashboard() {
   };
 
   const copyCode = async (code: string) => {
+  const copyCode = async (code: string) => {
     const ok = await copyText(code);
-    if (ok) toast.success(`Código copiado: ${code}`);
-    else toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
+    if (ok) toast.success("Código copiado.");
+    else toast.error("Não foi possível copiar o código.");
   };
 
   const copyAll = async () => {
@@ -177,6 +201,7 @@ export function AdminDashboard() {
     const ok = await copyText(list);
     if (ok) toast.success("Todos os códigos ativos copiados.");
     else toast.error("Não foi possível copiar a lista.");
+  };
   };
 
   const metrics = [
@@ -247,9 +272,26 @@ export function AdminDashboard() {
               }
             />
           </div>
+          <div className="mt-5 space-y-1.5">
+            <Label htmlFor="system-prompt">Prompt de sistema global</Label>
+            <textarea
+              id="system-prompt"
+              value={settings.system_prompt}
+              onChange={(event) =>
+                setSettings((current) => ({ ...current, system_prompt: event.target.value }))
+              }
+              rows={5}
+              maxLength={12000}
+              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Aplicado a todas as novas mensagens, sem expor chaves ou regras internas.
+            </p>
+          </div>
           <Button className="mt-4 gap-2" onClick={() => void saveSettings()} disabled={saving}>
             <Save className="size-4" />
-            {saving ? "Salvando..." : "Salvar"}
+            {saving ? "Salvando..." : "Salvar configurações"}
+          </Button>
           </Button>
         </div>
 
@@ -289,6 +331,45 @@ export function AdminDashboard() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="font-medium">Uso diário</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Chamadas dos últimos 14 dias.</p>
+          <div className="mt-5 h-64">
+            {stats?.daily.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.daily} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    className="fill-muted-foreground text-xs"
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    className="fill-muted-foreground text-xs"
+                  />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted))" }}
+                    contentStyle={{
+                      borderRadius: "0.75rem",
+                      border: "1px solid hsl(var(--border))",
+                      background: "hsl(var(--card))",
+                    }}
+                    formatter={(value: number) => [value, "Chamadas"]}
+                  />
+                  <Bar dataKey="calls" fill="hsl(var(--primary))" radius={[5, 5, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Nenhum uso registrado ainda.
+              </div>
+            )}
+          </div>
+        </div>
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4">
             <h3 className="font-medium">Uso por provedor (30 dias)</h3>
@@ -321,12 +402,13 @@ export function AdminDashboard() {
             <div>
               <h3 className="font-medium">Códigos recentes</h3>
               <p className="text-sm text-muted-foreground">
-                Toque no código para copiar (ou selecione o texto).
+                Clique para copiar um código não utilizado.
               </p>
             </div>
             <Button variant="secondary" size="sm" className="gap-2" onClick={() => void copyAll()}>
               <Copy className="size-4" /> Copiar ativos
             </Button>
+          </div>
           </div>
           <div className="divide-y divide-border">
             {codes.length ? (
@@ -344,15 +426,16 @@ export function AdminDashboard() {
                     <span className="select-all break-all">{code.code}</span>
                     <Copy className="size-4 shrink-0 text-muted-foreground" />
                   </button>
+                  <span className="text-xs text-muted-foreground">
+                    +{code.instant_bonus} agora
+                    {code.bonus_base_credits ? ` · +${code.bonus_base_credits} base` : ""}
+                  </span>
                   <span
                     className={`ml-auto rounded-full px-2 py-0.5 text-xs ${code.is_used ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}
                   >
                     {code.is_used ? "Usado" : "Ativo"}
                   </span>
-                  <span className="w-full text-xs text-muted-foreground">
-                    +{code.instant_bonus} agora
-                    {code.bonus_base_credits ? ` · +${code.bonus_base_credits} base` : ""}
-                  </span>
+                </div>
                 </div>
               ))
             ) : (
@@ -360,6 +443,50 @@ export function AdminDashboard() {
             )}
           </div>
         </div>
+      </section>
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-4">
+          <h3 className="font-medium">Auditoria recente</h3>
+          <p className="text-sm text-muted-foreground">
+            Uso de IA e resgates de códigos mais recentes.
+          </p>
+        </div>
+        {logs.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[650px] text-left text-sm">
+              <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Ação</th>
+                  <th className="px-5 py-3 font-medium">Provedor / modelo</th>
+                  <th className="px-5 py-3 font-medium">Energia</th>
+                  <th className="px-5 py-3 font-medium">Custo</th>
+                  <th className="px-5 py-3 font-medium">Quando</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {logs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="px-5 py-3">{log.action}</td>
+                    <td className="px-5 py-3 text-muted-foreground">
+                      {log.provider ?? "—"}
+                      {log.model ? ` · ${log.model}` : ""}
+                    </td>
+                    <td className="px-5 py-3">{log.credits}</td>
+                    <td className="px-5 py-3">${Number(log.cost_usd).toFixed(4)}</td>
+                    <td className="px-5 py-3 text-muted-foreground">
+                      {new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      }).format(new Date(log.created_at))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="px-5 py-6 text-sm text-muted-foreground">Nenhuma ação registrada ainda.</p>
+        )}
       </section>
     </div>
   );
