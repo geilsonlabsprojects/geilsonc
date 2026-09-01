@@ -77,11 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Hub de IA Universal" },
+      {
+        name: "description",
+        content:
+          "Plataforma gratuita de IA: chat multimodal, geração de imagens e créditos de energia renováveis.",
+      },
+      { property: "og:title", content: "Hub de IA Universal" },
+      {
+        property: "og:description",
+        content:
+          "Plataforma gratuita de IA: chat multimodal, geração de imagens e créditos de energia renováveis.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
