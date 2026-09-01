@@ -43,12 +43,6 @@ export function CreditsBar() {
         <span className="hidden sm:inline">energia</span>
         {profile.is_guest ? <span className="text-muted-foreground"> · visitante</span> : null}
         <span className="ml-2 tabular-nums text-muted-foreground sm:ml-auto">
-          {Math.round((profile.current_credits / profile.base_credits) * 100)}%
-        </span>
-      </div>
-        </span>
-        <span className="hidden sm:inline">energia</span>
-        <span className="ml-2 tabular-nums text-muted-foreground sm:ml-auto">
           {due ? "..." : formatCountdown(remaining)}
         </span>
       </div>

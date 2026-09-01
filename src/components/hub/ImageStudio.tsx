@@ -45,9 +45,7 @@ export function ImageStudio() {
         </div>
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Galeria de Imagens</h2>
-          <p className="text-sm text-muted-foreground">
-            Gere imagens pelos modelos inclusos do Hub.
-          </p>
+          <p className="text-sm text-muted-foreground">Gere imagens pelos modelos inclusos do Hub.</p>
         </div>
       </header>
 
@@ -151,10 +149,6 @@ export function ImageStudio() {
               </Button>
             </a>
           </figcaption>
-                <Download className="size-4" /> Baixar
-              </Button>
-            </a>
-          </figcaption>
         </figure>
       ) : null}
 
@@ -189,7 +183,7 @@ export function ImageStudio() {
                 >
                   <Download className="size-4 text-muted-foreground hover:text-foreground" />
                 </a>
-                <button onClick={() => deleteImage(img.id)} aria-label="Excluir imagem">
+                <button onClick={() => void deleteImage(img.id)} aria-label="Excluir imagem">
                   <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
                 </button>
               </div>

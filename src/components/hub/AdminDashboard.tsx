@@ -90,7 +90,7 @@ export function AdminDashboard() {
       supabase.rpc("admin_stats"),
       supabase
         .from("app_settings")
-.select("min_interval_seconds,max_interval_seconds,default_base_credits,system_prompt")
+        .select("min_interval_seconds,max_interval_seconds,default_base_credits,system_prompt")
         .eq("id", 1)
         .maybeSingle(),
       supabase
@@ -104,9 +104,11 @@ export function AdminDashboard() {
         .order("created_at", { ascending: false })
         .limit(12),
     ]);
+
     if (statsError || settingsError || codesError || logsError) {
       toast.error("Não foi possível carregar todos os dados administrativos.");
     }
+
     if (statsData) setStats(asStats(statsData));
     if (settingsData) setSettings(settingsData);
     if (codesData) setCodes(codesData);
@@ -133,6 +135,7 @@ export function AdminDashboard() {
       toast.error("Use valores inteiros válidos. O mínimo deve ser ao menos 600 segundos.");
       return;
     }
+
     setSaving(true);
     const { error } = await supabase.rpc("admin_update_settings", {
       _min: min,
@@ -141,10 +144,12 @@ export function AdminDashboard() {
       _system_prompt: settings.system_prompt,
     });
     setSaving(false);
+
     if (error) {
       toast.error("Não foi possível salvar as configurações.");
       return;
     }
+
     toast.success("Configurações salvas.");
     void load();
   };
@@ -166,6 +171,7 @@ export function AdminDashboard() {
       toast.error("Revise o tipo e os valores do lote de códigos.");
       return;
     }
+
     setGenerating(true);
     const { data, error } = await supabase.rpc("admin_generate_codes", {
       _type: codeType.toUpperCase(),
@@ -174,15 +180,16 @@ export function AdminDashboard() {
       _instant: instant,
     });
     setGenerating(false);
+
     if (error) {
       toast.error("Não foi possível gerar os códigos.");
       return;
     }
+
     setCodes((prev) => [...(data ?? []), ...prev].slice(0, 20));
     toast.success(`${data?.length ?? count} código(s) gerado(s).`);
   };
 
-  const copyCode = async (code: string) => {
   const copyCode = async (code: string) => {
     const ok = await copyText(code);
     if (ok) toast.success("Código copiado.");
@@ -194,14 +201,15 @@ export function AdminDashboard() {
       .filter((c) => !c.is_used)
       .map((c) => c.code)
       .join("\n");
+
     if (!list) {
       toast.error("Nenhum código ativo para copiar.");
       return;
     }
+
     const ok = await copyText(list);
     if (ok) toast.success("Todos os códigos ativos copiados.");
     else toast.error("Não foi possível copiar a lista.");
-  };
   };
 
   const metrics = [
@@ -216,9 +224,7 @@ export function AdminDashboard() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Painel administrativo</h2>
-          <p className="text-sm text-muted-foreground">
-            Acompanhe o uso, créditos e custos do Hub.
-          </p>
+          <p className="text-sm text-muted-foreground">Acompanhe o uso, créditos e custos do Hub.</p>
         </div>
         <Button
           variant="secondary"
@@ -246,9 +252,7 @@ export function AdminDashboard() {
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-5">
           <h3 className="font-medium">Configuração de créditos</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Defina a recarga aleatória para novos perfis.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Defina a recarga aleatória para novos perfis.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <Field
               label="Intervalo mínimo (s)"
@@ -272,6 +276,7 @@ export function AdminDashboard() {
               }
             />
           </div>
+
           <div className="mt-5 space-y-1.5">
             <Label htmlFor="system-prompt">Prompt de sistema global</Label>
             <textarea
@@ -288,10 +293,10 @@ export function AdminDashboard() {
               Aplicado a todas as novas mensagens, sem expor chaves ou regras internas.
             </p>
           </div>
+
           <Button className="mt-4 gap-2" onClick={() => void saveSettings()} disabled={saving}>
             <Save className="size-4" />
             {saving ? "Salvando..." : "Salvar configurações"}
-          </Button>
           </Button>
         </div>
 
@@ -370,6 +375,7 @@ export function AdminDashboard() {
             )}
           </div>
         </div>
+
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4">
             <h3 className="font-medium">Uso por provedor (30 dias)</h3>
@@ -391,65 +397,59 @@ export function AdminDashboard() {
                 </div>
               ))
             ) : (
-              <p className="px-5 py-6 text-sm text-muted-foreground">
-                Nenhum uso registrado ainda.
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
-            <div>
-              <h3 className="font-medium">Códigos recentes</h3>
-              <p className="text-sm text-muted-foreground">
-                Clique para copiar um código não utilizado.
-              </p>
-            </div>
-            <Button variant="secondary" size="sm" className="gap-2" onClick={() => void copyAll()}>
-              <Copy className="size-4" /> Copiar ativos
-            </Button>
-          </div>
-          </div>
-          <div className="divide-y divide-border">
-            {codes.length ? (
-              codes.map((code) => (
-                <div
-                  key={code.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm"
-                >
-                  <button
-                    type="button"
-                    className="flex min-w-0 items-center gap-2 font-mono break-all text-left hover:text-primary"
-                    onClick={() => void copyCode(code.code)}
-                    title="Copiar código"
-                  >
-                    <span className="select-all break-all">{code.code}</span>
-                    <Copy className="size-4 shrink-0 text-muted-foreground" />
-                  </button>
-                  <span className="text-xs text-muted-foreground">
-                    +{code.instant_bonus} agora
-                    {code.bonus_base_credits ? ` · +${code.bonus_base_credits} base` : ""}
-                  </span>
-                  <span
-                    className={`ml-auto rounded-full px-2 py-0.5 text-xs ${code.is_used ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}
-                  >
-                    {code.is_used ? "Usado" : "Ativo"}
-                  </span>
-                </div>
-                </div>
-              ))
-            ) : (
-              <p className="px-5 py-6 text-sm text-muted-foreground">Nenhum código gerado ainda.</p>
+              <p className="px-5 py-6 text-sm text-muted-foreground">Nenhum uso registrado ainda.</p>
             )}
           </div>
         </div>
       </section>
+
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
+          <div>
+            <h3 className="font-medium">Códigos recentes</h3>
+            <p className="text-sm text-muted-foreground">Clique para copiar um código não utilizado.</p>
+          </div>
+          <Button variant="secondary" size="sm" className="gap-2" onClick={() => void copyAll()}>
+            <Copy className="size-4" /> Copiar ativos
+          </Button>
+        </div>
+        <div className="divide-y divide-border">
+          {codes.length ? (
+            codes.map((code) => (
+              <div
+                key={code.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm"
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 items-center gap-2 font-mono break-all text-left hover:text-primary"
+                  onClick={() => void copyCode(code.code)}
+                  title="Copiar código"
+                >
+                  <span className="select-all break-all">{code.code}</span>
+                  <Copy className="size-4 shrink-0 text-muted-foreground" />
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  +{code.instant_bonus} agora
+                  {code.bonus_base_credits ? ` · +${code.bonus_base_credits} base` : ""}
+                </span>
+                <span
+                  className={`ml-auto rounded-full px-2 py-0.5 text-xs ${code.is_used ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}
+                >
+                  {code.is_used ? "Usado" : "Ativo"}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="px-5 py-6 text-sm text-muted-foreground">Nenhum código gerado ainda.</p>
+          )}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4">
           <h3 className="font-medium">Auditoria recente</h3>
-          <p className="text-sm text-muted-foreground">
-            Uso de IA e resgates de códigos mais recentes.
-          </p>
+          <p className="text-sm text-muted-foreground">Uso de IA e resgates de códigos mais recentes.</p>
         </div>
         {logs.length ? (
           <div className="overflow-x-auto">
