@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHub, type Attachment } from "@/lib/hub-store";
+import { PromptTemplate } from "@/components/PromptTemplate";
 
 async function readFile(file: File): Promise<Attachment> {
   if (file.type.startsWith("image/")) {
@@ -54,7 +55,9 @@ export function Composer() {
 
   return (
     <div className="border-t border-border bg-background/85 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-6">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-3xl space-y-2">
+        <PromptTemplate onSelect={(p) => setValue((v) => v + "\n" + p)} />
+
         {attachment ? (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs">
             <Paperclip className="size-3.5 text-primary" />
