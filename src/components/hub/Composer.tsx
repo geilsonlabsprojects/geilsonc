@@ -53,7 +53,7 @@ export function Composer() {
   };
 
   return (
-    <div className="border-t border-border bg-background/85 px-3 py-3 backdrop-blur md:px-6">
+    <div className="border-t border-border bg-background/85 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-6">
       <div className="mx-auto w-full max-w-3xl">
         {attachment ? (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs">
