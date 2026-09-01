@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { AlertTriangle, Download, Loader2, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, Download, Filter, Loader2, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -11,6 +12,7 @@ import {
 import { IMAGE_MODELS } from "@/lib/ai";
 import { useHub } from "@/lib/hub-store";
 import { ErrorReportButton } from "./ErrorReportButton";
+import { filterImages } from "@/lib/gallery-utils";
 
 const IDEAS = [
   "Retrato cinematográfico de uma astronauta ao amanhecer, luz suave",
@@ -30,7 +32,14 @@ export function ImageStudio() {
     profile,
   } = useHub();
   const [prompt, setPrompt] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [modelFilter, setModelFilter] = useState<string | undefined>();
   const latest = images[0];
+
+  const filteredImages = filterImages(images, {
+    search: searchFilter,
+    model: modelFilter,
+  });
 
   const submit = () => {
     if (!prompt.trim() || imageLoading) return;
@@ -38,14 +47,14 @@ export function ImageStudio() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-3 py-6 md:px-6">
+    <div className="mx-auto w-full max-w-6xl px-3 py-6 md:px-6">
       <header className="mb-6 flex items-center gap-3">
         <div className="flex size-11 items-center justify-center rounded-xl border border-border bg-studio/15 text-studio">
           <Wand2 className="size-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Galeria de Imagens</h2>
-          <p className="text-sm text-muted-foreground">Gere imagens pelos modelos inclusos do Hub.</p>
+          <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Galeria de Imagens</h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">Gere imagens com modelos IA.</p>
         </div>
       </header>
 
@@ -59,7 +68,7 @@ export function ImageStudio() {
         />
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={imageModel} onValueChange={setImageModel}>
-            <SelectTrigger className="w-full sm:w-[220px]">
+            <SelectTrigger className="w-full text-xs sm:w-[200px]">
               <SelectValue placeholder="Modelo" />
             </SelectTrigger>
             <SelectContent>
@@ -68,38 +77,37 @@ export function ImageStudio() {
                   key={m.id}
                   value={m.id}
                   disabled={Boolean(profile?.is_guest && index > 0)}
+                  className="text-xs"
                 >
-                  <span className="flex flex-col items-start">
-                    <span>{m.label}</span>
-                    <span className="text-xs text-muted-foreground">{m.hint}</span>
-                  </span>
+                  {m.label} - {m.hint}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button
-            className="w-full gap-2 bg-studio text-studio-foreground hover:bg-studio/90 sm:ml-auto sm:w-auto"
+            className="w-full gap-2 bg-studio text-studio-foreground hover:bg-studio/90 sm:ml-auto sm:w-auto sm:text-xs"
             onClick={submit}
             disabled={!prompt.trim() || imageLoading}
+            size="sm"
           >
             {imageLoading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Sparkles className="size-4" />
             )}
-            {imageLoading ? "Gerando..." : "Gerar imagem"}
+            {imageLoading ? "Gerando..." : "Gerar"}
           </Button>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-1 sm:gap-2">
         {IDEAS.map((i) => (
           <button
             key={i}
             onClick={() => setPrompt(i)}
-            className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-studio/60 hover:text-foreground"
+            className="rounded-full border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-studio/60 hover:text-foreground sm:px-3 sm:py-1.5 sm:text-xs"
           >
-            {i}
+            {i.slice(0, 20)}...
           </button>
         ))}
       </div>
@@ -153,15 +161,39 @@ export function ImageStudio() {
       ) : null}
 
       <h3 className="mt-8 mb-3 text-sm font-medium uppercase tracking-widest text-muted-foreground">
-        Histórico ({images.length})
+        Histórico ({filteredImages.length} de {images.length})
       </h3>
-      {images.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nenhuma imagem ainda — gere a primeira acima. As imagens ficam salvas na sua conta.
+      
+      {images.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+          <Input
+            placeholder="Buscar por prompt..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full text-xs sm:flex-1"
+          />
+          <Select value={modelFilter || ""} onValueChange={(v) => setModelFilter(v || undefined)}>
+            <SelectTrigger className="w-full text-xs sm:w-[180px]">
+              <SelectValue placeholder="Todos os modelos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos os modelos</SelectItem>
+              {[...new Set(images.map((i) => i.model))].map((m) => (
+                <SelectItem key={m} value={m} className="text-xs">
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {filteredImages.length === 0 ? (
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          {searchFilter || modelFilter ? "Nenhuma imagem encontrada com esses filtros." : "Nenhuma imagem ainda — gere a primeira acima."}
         </p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {images.map((img) => (
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 gap-3 lg:grid-cols-4">
+          {filteredImages.map((img) => (
             <li
               key={img.id}
               className="group relative overflow-hidden rounded-xl border border-border bg-card"

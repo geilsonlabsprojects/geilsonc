@@ -7,6 +7,7 @@ import { useHub } from "@/lib/hub-store";
 import { ChatSidebar } from "./ChatSidebar";
 import { CreditsBar } from "./CreditsBar";
 import { SettingsDialog } from "./SettingsDialog";
+import { PwaInstallBanner } from "./PwaInstallBanner";
 
 export function AppShell({
   title,
@@ -49,9 +50,12 @@ export function AppShell({
         </SheetContent>
       </Sheet>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 md:px-6">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PwaInstallBanner />
+
+        <main className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 md:px-6">
             <Button
               variant="ghost"
               size="icon"
@@ -82,7 +86,8 @@ export function AppShell({
         ) : (
           children
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
