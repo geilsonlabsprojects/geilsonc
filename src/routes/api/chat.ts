@@ -140,10 +140,22 @@ export const Route = createFileRoute("/api/chat")({
           );
         }
 
+        const refund = async () => {
+          await supabase.rpc("refund_credits", {
+            _amount: model.credits,
+            _action: "chat_refund",
+            _provider: provider,
+            _model: targetModel,
+          });
+        };
+
         // 1) Hub models via Lovable AI Gateway
         if (provider === "lovable") {
           const key = process.env["LOVABLE_API_KEY"];
-          if (!key) return jsonError("Modelos inclusos indisponíveis no momento.", 500);
+          if (!key) {
+            await refund();
+            return jsonError("Modelos inclusos indisponíveis no momento.", 500);
+          }
           const payload: Record<string, unknown> = {
             model: targetModel,
             messages: body.messages,
@@ -157,6 +169,7 @@ export const Route = createFileRoute("/api/chat")({
           });
           if (!upstream.ok || !upstream.body) {
             const detail = await upstream.text().catch(() => "");
+            await refund();
             return providerError("lovable", upstream.status, detail);
           }
           return sseStream(upstream.body);
@@ -173,11 +186,13 @@ export const Route = createFileRoute("/api/chat")({
             .maybeSingle();
           apiKey = keyRow?.secret ?? undefined;
         }
-        if (!apiKey)
+        if (!apiKey) {
+          await refund();
           return jsonError(
             `Chave de API do ${PROVIDER_LABEL[provider]} não configurada. Cadastre a sua em Configurações.`,
             400,
           );
+        }
 
         if (provider === "anthropic") {
           const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -198,7 +213,11 @@ export const Route = createFileRoute("/api/chat")({
                 })),
             }),
           });
-          if (!res.ok) return providerError(provider, res.status, await res.text().catch(() => ""));
+          if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            await refund();
+            return providerError(provider, res.status, detail);
+          }
           const json = (await res.json()) as { content?: Array<{ text?: string }> };
           return sseFromText(json.content?.map((c) => c.text ?? "").join("") ?? "");
         }
@@ -222,10 +241,12 @@ export const Route = createFileRoute("/api/chat")({
             signal: AbortSignal.timeout(120_000),
           });
         } catch {
+          await refund();
           return providerError(provider, 503, "");
         }
         if (!upstream.ok || !upstream.body) {
           const detail = await upstream.text().catch(() => "");
+          await refund();
           return providerError(provider, upstream.status, detail);
         }
         return sseStream(upstream.body);

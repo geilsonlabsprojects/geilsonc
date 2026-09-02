@@ -349,46 +349,28 @@ export type Database = {
         }
       }
       admin_stats: { Args: never; Returns: Json }
-      admin_update_settings:
-        | {
-            Args: { _default_base: number; _max: number; _min: number }
-            Returns: {
-              default_base_credits: number
-              id: number
-              max_interval_seconds: number
-              min_interval_seconds: number
-              system_prompt: string
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "app_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              _default_base: number
-              _max: number
-              _min: number
-              _system_prompt?: string
-            }
-            Returns: {
-              default_base_credits: number
-              id: number
-              max_interval_seconds: number
-              min_interval_seconds: number
-              system_prompt: string
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "app_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      admin_update_settings: {
+        Args: {
+          _default_base: number
+          _max: number
+          _min: number
+          _system_prompt?: string
+        }
+        Returns: {
+          default_base_credits: number
+          id: number
+          max_interval_seconds: number
+          min_interval_seconds: number
+          system_prompt: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "app_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_first_admin: { Args: never; Returns: boolean }
       has_role: {
         Args: {
@@ -399,6 +381,31 @@ export type Database = {
       }
       redeem_access_code: {
         Args: { _code: string }
+        Returns: {
+          base_credits: number
+          created_at: string
+          current_credits: number
+          display_name: string | null
+          email: string | null
+          last_renewal_at: string
+          renewal_interval_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      refund_credits: {
+        Args: {
+          _action?: string
+          _amount: number
+          _model?: string
+          _provider?: string
+        }
         Returns: {
           base_credits: number
           created_at: string
