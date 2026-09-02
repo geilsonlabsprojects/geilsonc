@@ -15,6 +15,13 @@
       "when": 1788315417648,
       "tag": "0001_add_system_prompt_setting",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788315514054,
+      "tag": "0002_drop_ambiguous_admin_update_settings",
+      "breakpoints": true
     }
   ]
 }

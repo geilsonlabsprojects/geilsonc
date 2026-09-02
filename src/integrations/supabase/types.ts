@@ -349,46 +349,28 @@ export type Database = {
         }
       }
       admin_stats: { Args: never; Returns: Json }
-      admin_update_settings:
-        | {
-            Args: { _default_base: number; _max: number; _min: number }
-            Returns: {
-              default_base_credits: number
-              id: number
-              max_interval_seconds: number
-              min_interval_seconds: number
-              system_prompt: string
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "app_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              _default_base: number
-              _max: number
-              _min: number
-              _system_prompt?: string
-            }
-            Returns: {
-              default_base_credits: number
-              id: number
-              max_interval_seconds: number
-              min_interval_seconds: number
-              system_prompt: string
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "app_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      admin_update_settings: {
+        Args: {
+          _default_base: number
+          _max: number
+          _min: number
+          _system_prompt?: string
+        }
+        Returns: {
+          default_base_credits: number
+          id: number
+          max_interval_seconds: number
+          min_interval_seconds: number
+          system_prompt: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "app_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_first_admin: { Args: never; Returns: boolean }
       has_role: {
         Args: {
