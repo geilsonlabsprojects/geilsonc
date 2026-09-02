@@ -53,8 +53,20 @@ export const Route = createFileRoute("/api/images")({
           );
         }
 
+        const refund = async () => {
+          await supabase.rpc("refund_credits", {
+            _amount: model.credits,
+            _action: "image_refund",
+            _provider: "lovable",
+            _model: model.id,
+          });
+        };
+
         const key = process.env["LOVABLE_API_KEY"];
-        if (!key) return jsonError("Geração de imagens indisponível no momento.", 500);
+        if (!key) {
+          await refund();
+          return jsonError("Geração de imagens indisponível no momento.", 500);
+        }
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -67,6 +79,7 @@ export const Route = createFileRoute("/api/images")({
         });
 
         if (!upstream.ok) {
+          await refund();
           const detail = await upstream.text().catch(() => "");
           if (upstream.status === 429)
             return jsonError("Muitas requisições agora. Tente em instantes.", 429);
@@ -79,7 +92,10 @@ export const Route = createFileRoute("/api/images")({
           choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
         };
         const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (!url) return jsonError("O modelo não retornou nenhuma imagem.", 502);
+        if (!url) {
+          await refund();
+          return jsonError("O modelo não retornou nenhuma imagem.", 502);
+        }
 
         const { data: row } = await supabase
           .from("generated_images")
