@@ -1,9 +1,8 @@
-
-const GUEST_ID_KEY = 'guest.device_id';
-const GUEST_CHATS_KEY = 'guest.chats';
-const GUEST_MESSAGES_KEY = 'guest.messages';
-const GUEST_IMAGES_KEY = 'guest.images';
-const GUEST_USAGE_KEY = 'guest.daily_usage';
+const GUEST_ID_KEY = "guest.device_id";
+const GUEST_CHATS_KEY = "guest.chats";
+const GUEST_MESSAGES_KEY = "guest.messages";
+const GUEST_IMAGES_KEY = "guest.images";
+const GUEST_USAGE_KEY = "guest.daily_usage";
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
@@ -14,6 +13,16 @@ export interface GuestUsage {
   chats: number;
   images: number;
   lastReset: number;
+}
+
+export interface GuestMessage {
+  id: string;
+  role: string;
+  content: string;
+  model: string | null;
+  attachment_name: string | null;
+  attachment_url: string | null;
+  created_at: string;
 }
 
 export const GUEST_LIMITS = {
@@ -29,9 +38,9 @@ export function getOrCreateGuestId(): string {
     let id = localStorage.getItem(GUEST_ID_KEY);
     if (!id) {
       // Simpler uuid generation without external lib
-      id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      id = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
       });
       localStorage.setItem(GUEST_ID_KEY, id);
@@ -62,7 +71,7 @@ export function getGuestUsage(): GuestUsage {
   }
 }
 
-export function incrementGuestUsage(type: 'chats' | 'images'): GuestUsage {
+export function incrementGuestUsage(type: "chats" | "images"): GuestUsage {
   const usage = getGuestUsage();
   usage[type]++;
   try {
@@ -85,7 +94,7 @@ export function canGenerateImage(): boolean {
 
 export function getGuestChats() {
   try {
-    return JSON.parse(localStorage.getItem(GUEST_CHATS_KEY) || '[]') as Array<{
+    return JSON.parse(localStorage.getItem(GUEST_CHATS_KEY) || "[]") as Array<{
       id: string;
       title: string;
       updated_at: string;
@@ -95,7 +104,7 @@ export function getGuestChats() {
   }
 }
 
-export function saveGuestChats(chats: any[]) {
+export function saveGuestChats(chats: Array<{ id: string; title: string; updated_at: string }>) {
   try {
     localStorage.setItem(GUEST_CHATS_KEY, JSON.stringify(chats));
   } catch {
@@ -105,16 +114,22 @@ export function saveGuestChats(chats: any[]) {
 
 export function getGuestMessages(chatId: string) {
   try {
-    const all = JSON.parse(localStorage.getItem(GUEST_MESSAGES_KEY) || '{}') as Record<string, any[]>;
+    const all = JSON.parse(localStorage.getItem(GUEST_MESSAGES_KEY) || "{}") as Record<
+      string,
+      GuestMessage[]
+    >;
     return all[chatId] || [];
   } catch {
     return [];
   }
 }
 
-export function saveGuestMessages(chatId: string, messages: any[]) {
+export function saveGuestMessages(chatId: string, messages: GuestMessage[]) {
   try {
-    const all = JSON.parse(localStorage.getItem(GUEST_MESSAGES_KEY) || '{}') as Record<string, any[]>;
+    const all = JSON.parse(localStorage.getItem(GUEST_MESSAGES_KEY) || "{}") as Record<
+      string,
+      GuestMessage[]
+    >;
     all[chatId] = messages;
     localStorage.setItem(GUEST_MESSAGES_KEY, JSON.stringify(all));
   } catch {
@@ -124,7 +139,7 @@ export function saveGuestMessages(chatId: string, messages: any[]) {
 
 export function getGuestImages() {
   try {
-    return JSON.parse(localStorage.getItem(GUEST_IMAGES_KEY) || '[]') as Array<{
+    return JSON.parse(localStorage.getItem(GUEST_IMAGES_KEY) || "[]") as Array<{
       id: string;
       prompt: string;
       model: string;
@@ -136,7 +151,15 @@ export function getGuestImages() {
   }
 }
 
-export function saveGuestImages(images: any[]) {
+export function saveGuestImages(
+  images: Array<{
+    id: string;
+    prompt: string;
+    model: string;
+    image_url: string;
+    created_at: string;
+  }>,
+) {
   try {
     localStorage.setItem(GUEST_IMAGES_KEY, JSON.stringify(images));
   } catch {

@@ -18,6 +18,7 @@ import {
   modelsForProvider,
   type ProviderId,
 } from "@/lib/ai";
+import { consumeMigratedActiveChatId } from "@/lib/history-sync";
 
 export type TabId = "chat" | "images" | "admin";
 
@@ -218,7 +219,14 @@ export function HubProvider({ children }: { children: ReactNode }) {
       setIsAdmin((roles ?? []).some((r) => r.role === "admin"));
       setChats(chatRows ?? []);
       setImages(imgRows ?? []);
-      setActiveChatId((cur) => cur ?? chatRows?.[0]?.id ?? null);
+      const migratedActiveChatId = consumeMigratedActiveChatId();
+      setActiveChatId(
+        migratedActiveChatId && chatRows?.some((chat) => chat.id === migratedActiveChatId)
+          ? migratedActiveChatId
+          : chatRows?.some((chat) => chat.id === activeChatId)
+            ? activeChatId
+            : (chatRows?.[0]?.id ?? null),
+      );
     })();
   }, [user, refreshProfile]);
 

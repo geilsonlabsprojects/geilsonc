@@ -109,6 +109,28 @@
   );
 }
 
+.light {
+  --background: oklch(0.985 0.003 250);
+  --foreground: oklch(0.22 0.018 265);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.018 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.018 265);
+  --secondary: oklch(0.94 0.009 255);
+  --secondary-foreground: oklch(0.25 0.02 265);
+  --muted: oklch(0.95 0.008 255);
+  --muted-foreground: oklch(0.48 0.02 260);
+  --accent: oklch(0.92 0.02 250);
+  --accent-foreground: oklch(0.22 0.018 265);
+  --border: oklch(0.82 0.012 255);
+  --input: oklch(0.8 0.012 255);
+  --sidebar: oklch(0.96 0.008 255);
+  --sidebar-foreground: oklch(0.22 0.018 265);
+  --sidebar-accent: oklch(0.91 0.02 250);
+  --sidebar-accent-foreground: oklch(0.22 0.018 265);
+  --sidebar-border: oklch(0.84 0.012 255);
+}
+
 @theme inline {
   --color-studio: var(--studio);
   --color-studio-foreground: var(--studio-foreground);
@@ -119,7 +141,6 @@
   --animate-message-in: message-in 0.28s ease-out both;
   --animate-caret: caret 1s steps(2) infinite;
 }
-
 
 @keyframes message-in {
   from {

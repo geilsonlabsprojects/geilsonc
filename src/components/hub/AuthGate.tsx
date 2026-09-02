@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-
+import { snapshotAnonymousHistory, syncGuestDataToAuth } from "@/lib/history-sync";
+import { useHub } from "@/lib/hub-store";
 
 export function AuthGate() {
+  const { activeChatId } = useHub();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +19,14 @@ export function AuthGate() {
   const submit = async () => {
     setBusy(true);
     setError(null);
-    const { error: err } =
+    try {
+      await snapshotAnonymousHistory(activeChatId);
+    } catch {
+      setError("Não foi possível preparar seu histórico de visitante. Tente novamente.");
+      setBusy(false);
+      return;
+    }
+    const { error: err, data } =
       mode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({
@@ -26,12 +35,24 @@ export function AuthGate() {
             options: { emailRedirectTo: window.location.origin },
           });
     if (err) setError(err.message);
+    else if (mode === "signin" || data.session) {
+      try {
+        await syncGuestDataToAuth();
+      } catch {
+        setError(
+          "Sua conta entrou, mas não foi possível migrar o histórico agora. Tente entrar novamente.",
+        );
+      }
+    } else {
+      setError("Sua conta foi criada. Seu histórico será sincronizado quando você entrar.");
+    }
     setBusy(false);
   };
 
   const google = async () => {
     setError(null);
     try {
+      await snapshotAnonymousHistory(activeChatId);
       await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });
@@ -59,7 +80,9 @@ export function AuthGate() {
               <Bot className="size-7 sm:size-8" />
             </div>
             <div className="space-y-1">
-              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Hub de IA Universal</h1>
+              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                Hub de IA Universal
+              </h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
                 Entre para usar modelos de IA em qualquer lugar.
               </p>
@@ -112,7 +135,8 @@ export function AuthGate() {
           </div>
 
           <p className="text-center text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
-            Acesso sem conta: até 5 recargas automáticas, modelos básicos e geração de imagens limitada.
+            Acesso sem conta: até 5 recargas automáticas, modelos básicos e geração de imagens
+            limitada.
           </p>
 
           <button

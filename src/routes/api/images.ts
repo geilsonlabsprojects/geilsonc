@@ -85,12 +85,14 @@ export const Route = createFileRoute("/api/images")({
 
         if (!upstream.ok) {
           await refund();
-          const detail = await upstream.text().catch(() => "");
           if (upstream.status === 429)
             return jsonError("Muitas requisições agora. Tente em instantes.", 429);
           if (upstream.status === 402)
             return jsonError("Os créditos de IA do hub acabaram por hoje.", 402);
-          return jsonError(detail.slice(0, 300) || "Falha ao gerar a imagem.", upstream.status);
+          return jsonError(
+            "Não foi possível gerar a imagem no momento. Tente novamente.",
+            upstream.status,
+          );
         }
 
         const json = (await upstream.json()) as {

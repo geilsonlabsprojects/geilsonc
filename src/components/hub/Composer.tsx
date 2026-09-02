@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHub, type Attachment } from "@/lib/hub-store";
@@ -53,13 +53,30 @@ export function Composer() {
     e.target.value = "";
   };
 
+  const acceptFile = async (file?: File) => {
+    if (!file) return;
+    setAttachment(await readFile(file));
+  };
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    void acceptFile(event.dataTransfer.files[0]);
+  };
+
   return (
-    <div className="border-t border-border bg-background/85 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-4 md:px-6">
+    <div className="border-t border-border/70 bg-background/90 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-4 md:px-6">
       <div className="mx-auto w-full max-w-4xl space-y-2">
         <PromptTemplate onSelect={(p) => setValue((v) => v + "\n" + p)} />
 
         {attachment ? (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs">
+          <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs">
+            {attachment.kind === "image" && attachment.dataUrl ? (
+              <img
+                src={attachment.dataUrl}
+                alt="Prévia do anexo"
+                className="size-8 rounded-md object-cover"
+              />
+            ) : null}
             <Paperclip className="size-3.5 text-primary" />
             <span className="truncate">{attachment.name}</span>
             <button
@@ -72,7 +89,11 @@ export function Composer() {
           </div>
         ) : null}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-lg transition-colors focus-within:border-primary/60">
+        <div
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={onDrop}
+          className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-[0_10px_30px_rgb(0_0_0_/_0.12)] transition-colors focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15"
+        >
           <input
             ref={fileRef}
             type="file"
@@ -98,11 +119,19 @@ export function Composer() {
               resize();
             }}
             onKeyDown={onKeyDown}
-            placeholder="Pergunte qualquer coisa..."
+            placeholder={
+              attachment ? "Adicione uma instrução para o anexo..." : "Pergunte qualquer coisa..."
+            }
             className="max-h-[200px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
           />
           {streaming ? (
-            <Button size="icon" variant="secondary" onClick={stop} aria-label="Parar geração" className="shrink-0">
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={stop}
+              aria-label="Parar geração"
+              className="shrink-0"
+            >
               <Square className="size-4" />
             </Button>
           ) : (
@@ -118,7 +147,7 @@ export function Composer() {
           )}
         </div>
         <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          Enter envia · Shift + Enter cria nova linha
+          Arraste um arquivo ou use o anexo · Enter envia · Shift + Enter cria nova linha
         </p>
       </div>
     </div>
