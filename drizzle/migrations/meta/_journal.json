@@ -8,6 +8,13 @@
       "when": 1788184398568,
       "tag": "0000_auto_admin_owner_email",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788315417648,
+      "tag": "0001_add_system_prompt_setting",
+      "breakpoints": true
     }
   ]
 }
