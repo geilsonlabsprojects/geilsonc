@@ -5,10 +5,12 @@ import { Composer } from "./Composer";
 import { MessageBubble } from "./MessageBubble";
 
 const SUGGESTIONS = [
-  "Explique a diferença entre RAG e fine-tuning.",
-  "Escreva um roteiro de 30s para um app de IA.",
-  "Refatore esta função em TypeScript para ser mais legível.",
-  "Resuma as tendências de LLMs open source.",
+  { label: "Escrever", prompt: "Ajude-me a escrever um texto claro e envolvente sobre " },
+  { label: "Programar", prompt: "Ajude-me a resolver este desafio de programação: " },
+  { label: "Estudar", prompt: "Explique este assunto de forma simples, com exemplos: " },
+  { label: "Criar ideias", prompt: "Crie ideias originais para " },
+  { label: "Analisar", prompt: "Analise e resuma o seguinte conteúdo: " },
+  { label: "Imagens", prompt: "Descreva um prompt de imagem detalhado para " },
 ];
 
 export function ChatPanel() {
@@ -26,7 +28,7 @@ export function ChatPanel() {
         <div className="relative mx-auto w-full max-w-3xl px-3 py-6 md:px-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center gap-6 py-6 text-center animate-message-in sm:py-10">
-              <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-primary/15 text-primary">
+              <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-primary/15 text-primary shadow-sm">
                 <Bot className="size-7" />
               </div>
               <div className="space-y-2">
@@ -34,18 +36,18 @@ export function ChatPanel() {
                   Hub de IA Universal
                 </h2>
                 <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                  Converse com modelos do Hub, Hugging Face, Google Gemini, Groq e OpenRouter —
-                  escolha o provedor e o modelo no topo da tela.
+                  Comece com uma ideia, um arquivo ou uma pergunta. Você escolhe o modelo; o Hub
+                  cuida do restante.
                 </p>
               </div>
               <div className="grid w-full gap-2 sm:grid-cols-2">
-                {SUGGESTIONS.map((s) => (
+                {SUGGESTIONS.map((suggestion) => (
                   <button
-                    key={s}
-                    onClick={() => void sendMessage(s)}
-                    className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-card-foreground transition-colors hover:border-primary/60 hover:bg-accent active:scale-[0.99]"
+                    key={suggestion.label}
+                    onClick={() => void sendMessage(suggestion.prompt)}
+                    className="rounded-xl border border-border/80 bg-card/70 px-4 py-3 text-left text-sm text-card-foreground transition-colors hover:border-primary/60 hover:bg-accent active:scale-[0.99]"
                   >
-                    {s}
+                    {suggestion.label}
                   </button>
                 ))}
               </div>

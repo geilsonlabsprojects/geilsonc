@@ -30,10 +30,10 @@ function AuthRoute() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && user) void navigate({ to: "/" });
+    if (!loading && user && !user.is_anonymous) void navigate({ to: "/" });
   }, [loading, user, navigate]);
 
-  if (loading || user) {
+  if (loading || (user && !user.is_anonymous)) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-primary" />

@@ -114,8 +114,8 @@ export function ImageStudio() {
 
       {profile?.is_guest ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          Acesso sem conta: até 5 imagens com o modelo básico. Crie uma conta gratuita para salvar
-          mais e usar o modelo avançado.
+          Acesso sem conta: até 2 imagens por dia com o modelo básico. Crie uma conta gratuita para
+          salvar mais e usar o modelo avançado.
         </p>
       ) : null}
 
@@ -163,7 +163,7 @@ export function ImageStudio() {
       <h3 className="mt-8 mb-3 text-sm font-medium uppercase tracking-widest text-muted-foreground">
         Histórico ({filteredImages.length} de {images.length})
       </h3>
-      
+
       {images.length > 0 && (
         <div className="mb-4 flex flex-col gap-2 sm:flex-row">
           <Input
@@ -189,7 +189,9 @@ export function ImageStudio() {
       )}
       {filteredImages.length === 0 ? (
         <p className="text-xs text-muted-foreground sm:text-sm">
-          {searchFilter || modelFilter ? "Nenhuma imagem encontrada com esses filtros." : "Nenhuma imagem ainda — gere a primeira acima."}
+          {searchFilter || modelFilter
+            ? "Nenhuma imagem encontrada com esses filtros."
+            : "Nenhuma imagem ainda — gere a primeira acima."}
         </p>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

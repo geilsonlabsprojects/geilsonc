@@ -1,6 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Loader2, Menu } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useHub } from "@/lib/hub-store";
@@ -8,6 +7,7 @@ import { ChatSidebar } from "./ChatSidebar";
 import { CreditsBar } from "./CreditsBar";
 import { SettingsDialog } from "./SettingsDialog";
 import { PwaInstallBanner } from "./PwaInstallBanner";
+import { AuthGate } from "./AuthGate";
 
 export function AppShell({
   title,
@@ -23,19 +23,17 @@ export function AppShell({
 }) {
   const { loading, user } = useHub();
   const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !user) void navigate({ to: "/entrar" });
-  }, [loading, user, navigate]);
-
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-primary" />
       </div>
     );
   }
+
+  // Authentication is intentionally optional. If anonymous sign-in is disabled
+  // on an environment, the regular sign-in screen remains the recovery path.
+  if (!user) return <AuthGate />;
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">

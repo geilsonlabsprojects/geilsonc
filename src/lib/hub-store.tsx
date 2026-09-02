@@ -18,6 +18,7 @@ import {
   modelsForProvider,
   type ProviderId,
 } from "@/lib/ai";
+import { consumeMigratedActiveChatId } from "@/lib/history-sync";
 
 export type TabId = "chat" | "images" | "admin";
 
@@ -175,10 +176,18 @@ export function HubProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+      } else {
+        // The product is usable without an account. Anonymous Supabase users still
+        // receive RLS-scoped storage and credits, rather than sharing guest data.
+        const { data: guest, error } = await supabase.auth.signInAnonymously();
+        if (!error) setSession(guest.session);
+      }
       setLoading(false);
-    });
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -210,7 +219,14 @@ export function HubProvider({ children }: { children: ReactNode }) {
       setIsAdmin((roles ?? []).some((r) => r.role === "admin"));
       setChats(chatRows ?? []);
       setImages(imgRows ?? []);
-      setActiveChatId((cur) => cur ?? chatRows?.[0]?.id ?? null);
+      const migratedActiveChatId = consumeMigratedActiveChatId();
+      setActiveChatId(
+        migratedActiveChatId && chatRows?.some((chat) => chat.id === migratedActiveChatId)
+          ? migratedActiveChatId
+          : chatRows?.some((chat) => chat.id === activeChatId)
+            ? activeChatId
+            : (chatRows?.[0]?.id ?? null),
+      );
     })();
   }, [user, refreshProfile]);
 

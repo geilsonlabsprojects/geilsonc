@@ -25,13 +25,18 @@ export const Route = createFileRoute("/api/images")({
             403,
           );
         if (isGuest) {
+          const today = new Date();
+          today.setUTCHours(0, 0, 0, 0);
           const { count, error: countError } = await supabase
-            .from("generated_images")
-            .select("id", { count: "exact", head: true });
+            .from("usage_logs")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("action", "image")
+            .gte("created_at", today.toISOString());
           if (countError) return jsonError("Não foi possível verificar o limite do Estúdio.", 500);
-          if ((count ?? 0) >= 5)
+          if ((count ?? 0) >= 2)
             return jsonError(
-              "O limite de 5 imagens do acesso sem conta foi atingido. Crie uma conta gratuita para continuar.",
+              "Seu acesso gratuito de convidado atingiu o limite atual. Crie uma conta gratuita para continuar.",
               403,
             );
         }
@@ -80,12 +85,14 @@ export const Route = createFileRoute("/api/images")({
 
         if (!upstream.ok) {
           await refund();
-          const detail = await upstream.text().catch(() => "");
           if (upstream.status === 429)
             return jsonError("Muitas requisições agora. Tente em instantes.", 429);
           if (upstream.status === 402)
             return jsonError("Os créditos de IA do hub acabaram por hoje.", 402);
-          return jsonError(detail.slice(0, 300) || "Falha ao gerar a imagem.", upstream.status);
+          return jsonError(
+            "Não foi possível gerar a imagem no momento. Tente novamente.",
+            upstream.status,
+          );
         }
 
         const json = (await upstream.json()) as {

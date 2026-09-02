@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 import { useHub } from "./hub-store";
 import {
-  getGuestChats,
-  getGuestMessages,
-  getGuestImages,
   saveGuestChats,
   saveGuestMessages,
   saveGuestImages,
@@ -21,14 +18,9 @@ export function useGuestIntegration() {
     if (!user || user.is_anonymous) return;
 
     if (shouldSync()) {
-      void syncGuestDataToAuth({
-        chats: getGuestChats(),
-        messages: Object.fromEntries(
-          getGuestChats().map((c) => [c.id, getGuestMessages(c.id)]),
-        ),
-        images: getGuestImages(),
-      });
-      markSynced();
+      void syncGuestDataToAuth()
+        .then(markSynced)
+        .catch(() => undefined);
     }
   }, [user?.id]);
 
