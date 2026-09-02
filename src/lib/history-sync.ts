@@ -35,6 +35,7 @@ export async function syncGuestDataToAuth(guestData: {
           await supabase.from("messages").insert({
             id: msg.id,
             chat_id: chat.id,
+            user_id: user.user.id,
             role: msg.role,
             content: msg.content,
             model: msg.model,

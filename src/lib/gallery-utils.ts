@@ -1,15 +1,14 @@
 // Gallery filters e utilities
 export type ImageFilter = {
-  search?: string;
-  model?: string;
-  dateFrom?: Date;
-  dateTo?: Date;
+  search?: string | undefined;
+  model?: string | undefined;
+  dateFrom?: Date | undefined;
+  dateTo?: Date | undefined;
 };
 
-export function filterImages(
-  images: Array<{ id: string; prompt: string; model: string; created_at: string }>,
-  filter: ImageFilter,
-) {
+export function filterImages<
+  T extends { id: string; prompt: string; model: string; created_at: string },
+>(images: T[], filter: ImageFilter): T[] {
   return images.filter((img) => {
     if (filter.search && !img.prompt.toLowerCase().includes(filter.search.toLowerCase())) {
       return false;
