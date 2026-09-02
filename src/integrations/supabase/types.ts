@@ -399,6 +399,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      refund_credits: {
+        Args: {
+          _action?: string
+          _amount: number
+          _model?: string
+          _provider?: string
+        }
+        Returns: {
+          base_credits: number
+          created_at: string
+          current_credits: number
+          display_name: string | null
+          email: string | null
+          last_renewal_at: string
+          renewal_interval_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       spend_credits: {
         Args: {
           _action: string
