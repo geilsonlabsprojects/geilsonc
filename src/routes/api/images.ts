@@ -25,13 +25,18 @@ export const Route = createFileRoute("/api/images")({
             403,
           );
         if (isGuest) {
+          const today = new Date();
+          today.setUTCHours(0, 0, 0, 0);
           const { count, error: countError } = await supabase
-            .from("generated_images")
-            .select("id", { count: "exact", head: true });
+            .from("usage_logs")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("action", "image")
+            .gte("created_at", today.toISOString());
           if (countError) return jsonError("Não foi possível verificar o limite do Estúdio.", 500);
-          if ((count ?? 0) >= 5)
+          if ((count ?? 0) >= 2)
             return jsonError(
-              "O limite de 5 imagens do acesso sem conta foi atingido. Crie uma conta gratuita para continuar.",
+              "Seu acesso gratuito de convidado atingiu o limite atual. Crie uma conta gratuita para continuar.",
               403,
             );
         }

@@ -111,6 +111,41 @@ export const Route = createFileRoute("/api/chat")({
             403,
           );
 
+        if (isGuest) {
+          const today = new Date();
+          today.setUTCHours(0, 0, 0, 0);
+          const minuteAgo = new Date(Date.now() - 60_000).toISOString();
+          const [
+            { count: dailyCount, error: dailyError },
+            { count: burstCount, error: burstError },
+          ] = await Promise.all([
+            supabase
+              .from("usage_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("action", "chat")
+              .gte("created_at", today.toISOString()),
+            supabase
+              .from("usage_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("action", "chat")
+              .gte("created_at", minuteAgo),
+          ]);
+          if (dailyError || burstError)
+            return jsonError("Não foi possível verificar o limite do acesso de convidado.", 500);
+          if ((burstCount ?? 0) >= 6)
+            return jsonError(
+              "Muitas mensagens em pouco tempo. Aguarde um instante e tente novamente.",
+              429,
+            );
+          if ((dailyCount ?? 0) >= 3)
+            return jsonError(
+              "Seu acesso gratuito de convidado atingiu o limite atual. Crie uma conta gratuita para continuar.",
+              403,
+            );
+        }
+
         const { error: spendError } = await supabase.rpc("spend_credits", {
           _amount: model.credits,
           _action: "chat",
@@ -182,6 +217,7 @@ export const Route = createFileRoute("/api/chat")({
           const { data: keyRow } = await supabase
             .from("api_keys")
             .select("secret")
+            .eq("user_id", user.id)
             .eq("provider", provider)
             .maybeSingle();
           apiKey = keyRow?.secret ?? undefined;

@@ -175,10 +175,18 @@ export function HubProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+      } else {
+        // The product is usable without an account. Anonymous Supabase users still
+        // receive RLS-scoped storage and credits, rather than sharing guest data.
+        const { data: guest, error } = await supabase.auth.signInAnonymously();
+        if (!error) setSession(guest.session);
+      }
       setLoading(false);
-    });
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
