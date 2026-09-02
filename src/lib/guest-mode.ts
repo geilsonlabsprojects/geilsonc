@@ -1,10 +1,13 @@
-import { v4 as uuidv4 } from 'crypto-js';
 
 const GUEST_ID_KEY = 'guest.device_id';
 const GUEST_CHATS_KEY = 'guest.chats';
 const GUEST_MESSAGES_KEY = 'guest.messages';
 const GUEST_IMAGES_KEY = 'guest.images';
 const GUEST_USAGE_KEY = 'guest.daily_usage';
+
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export interface GuestUsage {
   date: string;
@@ -44,17 +47,17 @@ export function getGuestUsage(): GuestUsage {
     const stored = localStorage.getItem(GUEST_USAGE_KEY);
     if (stored) {
       const usage = JSON.parse(stored) as GuestUsage;
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayKey();
       if (usage.date === today) {
         return usage;
       }
       // Reset if day changed
       return { date: today, chats: 0, images: 0, lastReset: Date.now() };
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     return { date: today, chats: 0, images: 0, lastReset: Date.now() };
   } catch {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     return { date: today, chats: 0, images: 0, lastReset: Date.now() };
   }
 }
