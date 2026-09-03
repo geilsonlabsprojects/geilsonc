@@ -18,9 +18,10 @@ async function readFile(file: File): Promise<Attachment> {
   return { name: file.name, kind: "text", text: text.slice(0, 30_000) };
 }
 
-export function Composer() {
+export function Composer({ showTemplates = false }: { showTemplates?: boolean }) {
   const { sendMessage, streaming, stop } = useHub();
   const [value, setValue] = useState("");
+  const [focused, setFocused] = useState(false);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -29,7 +30,7 @@ export function Composer() {
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   };
 
   const submit = () => {
@@ -64,17 +65,17 @@ export function Composer() {
   };
 
   return (
-    <div className="border-t border-border/70 bg-background/90 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-4 md:px-6">
-      <div className="mx-auto w-full max-w-4xl space-y-2">
-        <PromptTemplate onSelect={(p) => setValue((v) => v + "\n" + p)} />
+    <div className="shrink-0 border-t border-border/60 bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-6">
+      <div className="mx-auto w-full max-w-[820px] space-y-2">
+        {showTemplates ? <PromptTemplate onSelect={(p) => setValue((v) => (v ? v + "\n" : "") + p)} /> : null}
 
         {attachment ? (
-          <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs">
             {attachment.kind === "image" && attachment.dataUrl ? (
               <img
                 src={attachment.dataUrl}
                 alt="Prévia do anexo"
-                className="size-8 rounded-md object-cover"
+                className="size-7 rounded-md object-cover"
               />
             ) : null}
             <Paperclip className="size-3.5 text-primary" />
@@ -92,7 +93,7 @@ export function Composer() {
         <div
           onDragOver={(event) => event.preventDefault()}
           onDrop={onDrop}
-          className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-[0_10px_30px_rgb(0_0_0_/_0.12)] transition-colors focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15"
+          className="flex items-end gap-1 rounded-2xl border border-border bg-card px-1.5 py-1.5 transition-colors focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15"
         >
           <input
             ref={fileRef}
@@ -106,7 +107,7 @@ export function Composer() {
             variant="ghost"
             onClick={() => fileRef.current?.click()}
             aria-label="Anexar arquivo"
-            className="shrink-0"
+            className="size-9 shrink-0 rounded-xl"
           >
             <Paperclip className="size-4" />
           </Button>
@@ -114,6 +115,8 @@ export function Composer() {
             ref={ref}
             rows={1}
             value={value}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onChange={(e) => {
               setValue(e.target.value);
               resize();
@@ -122,7 +125,7 @@ export function Composer() {
             placeholder={
               attachment ? "Adicione uma instrução para o anexo..." : "Pergunte qualquer coisa..."
             }
-            className="max-h-[200px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            className="max-h-[180px] min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm outline-none placeholder:text-muted-foreground"
           />
           {streaming ? (
             <Button
@@ -130,7 +133,7 @@ export function Composer() {
               variant="secondary"
               onClick={stop}
               aria-label="Parar geração"
-              className="shrink-0"
+              className="size-9 shrink-0 rounded-xl"
             >
               <Square className="size-4" />
             </Button>
@@ -140,15 +143,17 @@ export function Composer() {
               onClick={submit}
               disabled={!value.trim() && !attachment}
               aria-label="Enviar mensagem"
-              className="shrink-0"
+              className="size-9 shrink-0 rounded-xl"
             >
               <ArrowUp className="size-4" />
             </Button>
           )}
         </div>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          Arraste um arquivo ou use o anexo · Enter envia · Shift + Enter cria nova linha
-        </p>
+        {focused || value ? (
+          <p className="text-center text-[10px] text-muted-foreground/60">
+            Enter envia · Shift + Enter nova linha · arraste arquivos para anexar
+          </p>
+        ) : null}
       </div>
     </div>
   );

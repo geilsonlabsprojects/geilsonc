@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 
 export const PROMPT_TEMPLATES = [
@@ -28,19 +29,14 @@ export const PROMPT_TEMPLATES = [
   },
 ];
 
-export function PromptTemplate({
-  onSelect,
-}: {
-  onSelect: (prompt: string) => void;
-}) {
-  const [showSave, setShowSave] = useState(false);
+export function PromptTemplate({ onSelect }: { onSelect: (prompt: string) => void }) {
   const [customName, setCustomName] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
 
   const saveCustom = () => {
     if (!customPrompt.trim()) return;
     try {
-      const custom = JSON.parse(localStorage.getItem("custom_prompts") || "[]") as any[];
+      const custom = JSON.parse(localStorage.getItem("custom_prompts") || "[]") as unknown[];
       custom.push({ id: Date.now(), name: customName || "Template", prompt: customPrompt });
       localStorage.setItem("custom_prompts", JSON.stringify(custom));
       toast.success("Template salvo!");
@@ -52,49 +48,43 @@ export function PromptTemplate({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {PROMPT_TEMPLATES.map((t) => (
-          <Button
-            key={t.id}
-            variant="outline"
-            size="sm"
-            className="text-left text-xs"
-            onClick={() => onSelect(t.prompt)}
+    <div className="flex flex-wrap items-center gap-1.5">
+      {PROMPT_TEMPLATES.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => onSelect(t.prompt)}
+          className="rounded-full border border-border/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+        >
+          {t.name}
+        </button>
+      ))}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Criar novo template"
           >
-            {t.name}
-          </Button>
-        ))}
-      </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="w-full gap-1 text-xs"
-        onClick={() => setShowSave(!showSave)}
-      >
-        <Plus className="size-3" /> Novo Template
-      </Button>
-      {showSave && (
-        <div className="space-y-2 rounded-lg border p-2">
+            <Plus className="size-3" /> Novo template
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[min(92vw,20rem)] space-y-2">
           <Input
             placeholder="Nome"
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
-            size={30}
-            className="text-xs"
+            className="h-8 text-xs"
           />
           <Textarea
-            placeholder="Seu template (use {variável} para placeholders)"
+            placeholder="Escreva o template. Use {variavel} para campos."
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
-            rows={2}
-            className="text-xs"
+            className="min-h-20 text-xs"
           />
-          <Button size="sm" onClick={saveCustom} className="w-full gap-1 text-xs">
-            <Save className="size-3" /> Salvar
+          <Button size="sm" className="h-8 w-full gap-1 text-xs" onClick={saveCustom}>
+            <Save className="size-3" /> Salvar template
           </Button>
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
