@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { IMAGE_MODELS } from "@/lib/ai";
 import { jsonError, requireUser } from "@/lib/api-auth.server";
+import { consumeGuest, isValidDeviceId, refundGuest } from "@/lib/guest-limits.server";
 
 interface Body {
   prompt: string;
@@ -12,53 +13,43 @@ export const Route = createFileRoute("/api/images")({
     handlers: {
       POST: async ({ request }) => {
         const { supabase, user } = await requireUser(request);
-        if (!user) return jsonError("Faça login para gerar imagens.", 401);
+        const deviceId = request.headers.get("x-guest-id");
+        const guestMode = !user;
+        if (guestMode && !isValidDeviceId(deviceId))
+          return jsonError("Faça login para gerar imagens.", 401);
 
         const body = (await request.json()) as Body;
         const prompt = (body.prompt ?? "").trim();
         if (!prompt) return jsonError("Descreva a imagem que você quer gerar.", 400);
         const model = IMAGE_MODELS.find((m) => m.id === body.model) ?? IMAGE_MODELS[0];
-        const isGuest = Boolean(user.is_anonymous);
-        if (isGuest && model !== IMAGE_MODELS[0])
-          return jsonError(
-            "No acesso sem conta, use o modelo de imagem básico. Crie uma conta gratuita para liberar modelos avançados.",
-            403,
-          );
-        if (isGuest) {
-          const today = new Date();
-          today.setUTCHours(0, 0, 0, 0);
-          const { count, error: countError } = await supabase
-            .from("usage_logs")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .eq("action", "image")
-            .gte("created_at", today.toISOString());
-          if (countError) return jsonError("Não foi possível verificar o limite do Estúdio.", 500);
-          if ((count ?? 0) >= 2)
-            return jsonError(
-              "Seu acesso gratuito de convidado atingiu o limite atual. Crie uma conta gratuita para continuar.",
-              403,
-            );
-        }
 
-        const { error: spendError } = await supabase.rpc("spend_credits", {
-          _amount: model.credits,
-          _action: "image",
-          _provider: "lovable",
-          _model: model.id,
-          _cost: model.cost,
-        });
-        if (spendError) {
-          const insufficient = spendError.message.includes("INSUFFICIENT_CREDITS");
-          return jsonError(
-            insufficient
-              ? "Energia esgotada! Aguarde a recarga automática ou resgate um código."
-              : "Não foi possível validar seus créditos.",
-            insufficient ? 402 : 500,
-          );
+        if (guestMode) {
+          const check = await consumeGuest(deviceId!, "image", model.credits);
+          if (!check.ok) return jsonError(check.message, check.status);
+        } else {
+          const { error: spendError } = await supabase.rpc("spend_credits", {
+            _amount: model.credits,
+            _action: "image",
+            _provider: "lovable",
+            _model: model.id,
+            _cost: model.cost,
+          });
+          if (spendError) {
+            const insufficient = spendError.message.includes("INSUFFICIENT_CREDITS");
+            return jsonError(
+              insufficient
+                ? "Energia esgotada! Aguarde a recarga automática ou resgate um código."
+                : "Não foi possível validar seus créditos.",
+              insufficient ? 402 : 500,
+            );
+          }
         }
 
         const refund = async () => {
+          if (guestMode) {
+            await refundGuest(deviceId!, "image", model.credits);
+            return;
+          }
           await supabase.rpc("refund_credits", {
             _amount: model.credits,
             _action: "image_refund",
@@ -66,6 +57,7 @@ export const Route = createFileRoute("/api/images")({
             _model: model.id,
           });
         };
+
 
         const key = process.env["LOVABLE_API_KEY"];
         if (!key) {
@@ -104,15 +96,28 @@ export const Route = createFileRoute("/api/images")({
           return jsonError("O modelo não retornou nenhuma imagem.", 502);
         }
 
-        const { data: row } = await supabase
-          .from("generated_images")
-          .insert({ user_id: user.id, prompt, model: model.id, image_url: url })
-          .select()
-          .maybeSingle();
+        // Guests keep their gallery locally; nothing is persisted in the backend.
+        const { data: row } = guestMode
+          ? { data: null }
+          : await supabase
+              .from("generated_images")
+              .insert({ user_id: user!.id, prompt, model: model.id, image_url: url })
+              .select()
+              .maybeSingle();
 
-        return new Response(JSON.stringify({ image: row ?? { prompt, image_url: url } }), {
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            image: row ?? {
+              id: crypto.randomUUID(),
+              prompt,
+              model: model.id,
+              image_url: url,
+              created_at: new Date().toISOString(),
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+
       },
     },
   },

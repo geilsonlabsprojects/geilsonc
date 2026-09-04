@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { findModel, type ProviderId } from "@/lib/ai";
 import { jsonError, requireUser } from "@/lib/api-auth.server";
+import { consumeGuest, isValidDeviceId, refundGuest } from "@/lib/guest-limits.server";
+
 
 interface Body {
   model: string;
@@ -84,7 +86,10 @@ export const Route = createFileRoute("/api/chat")({
     handlers: {
       POST: async ({ request }) => {
         const { supabase, user } = await requireUser(request);
-        if (!user) return jsonError("Faça login para conversar.", 401);
+        const deviceId = request.headers.get("x-guest-id");
+        const guestMode = !user;
+        if (guestMode && !isValidDeviceId(deviceId))
+          return jsonError("Faça login para conversar.", 401);
 
         const body = (await request.json()) as Body;
         if (!Array.isArray(body.messages) || body.messages.length === 0)
@@ -92,11 +97,9 @@ export const Route = createFileRoute("/api/chat")({
         const model = findModel(body.model);
         const provider = model.provider;
         const targetModel = model.id === "auto" ? "google/gemini-3.7-flash" : model.id;
-        const { data: settings } = await supabase
-          .from("app_settings")
-          .select("system_prompt")
-          .eq("id", 1)
-          .maybeSingle();
+        const { data: settings } = guestMode
+          ? { data: null }
+          : await supabase.from("app_settings").select("system_prompt").eq("id", 1).maybeSingle();
         const systemPrompt =
           settings?.system_prompt ?? "Você é o assistente do Hub de IA Universal.";
         body.messages = [
@@ -104,78 +107,47 @@ export const Route = createFileRoute("/api/chat")({
           ...body.messages.filter((message) => message.role !== "system"),
         ];
 
-        const isGuest = Boolean((user as { is_anonymous?: boolean }).is_anonymous);
-        if (isGuest && model.credits > 2)
-          return jsonError(
-            "No acesso sem conta, escolha Auto ou um modelo básico. Crie uma conta gratuita para liberar modelos avançados.",
-            403,
-          );
-
-        if (isGuest) {
-          const today = new Date();
-          today.setUTCHours(0, 0, 0, 0);
-          const minuteAgo = new Date(Date.now() - 60_000).toISOString();
-          const [
-            { count: dailyCount, error: dailyError },
-            { count: burstCount, error: burstError },
-          ] = await Promise.all([
-            supabase
-              .from("usage_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("user_id", user.id)
-              .eq("action", "chat")
-              .gte("created_at", today.toISOString()),
-            supabase
-              .from("usage_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("user_id", user.id)
-              .eq("action", "chat")
-              .gte("created_at", minuteAgo),
-          ]);
-          if (dailyError || burstError)
-            return jsonError("Não foi possível verificar o limite do acesso de convidado.", 500);
-          if ((burstCount ?? 0) >= 6)
+        // Account-free mode: no backend account, quota metered per device.
+        if (guestMode) {
+          const check = await consumeGuest(deviceId!, "chat", model.credits);
+          if (!check.ok) return jsonError(check.message, check.status);
+        } else {
+          const { error: spendError } = await supabase.rpc("spend_credits", {
+            _amount: model.credits,
+            _action: "chat",
+            _provider: provider,
+            _model: targetModel,
+            _cost: model.cost,
+          });
+          if (spendError) {
+            const insufficient = spendError.message.includes("INSUFFICIENT_CREDITS");
+            const { data: profile } = insufficient
+              ? await supabase
+                  .from("profiles")
+                  .select("last_renewal_at,renewal_interval_seconds")
+                  .eq("user_id", user!.id)
+                  .maybeSingle()
+              : { data: null };
+            const nextRenewal = profile
+              ? new Date(profile.last_renewal_at).getTime() +
+                profile.renewal_interval_seconds * 1000
+              : 0;
+            const minutes = Math.max(1, Math.ceil((nextRenewal - Date.now()) / 60_000));
+            const rechargeIn = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
             return jsonError(
-              "Muitas mensagens em pouco tempo. Aguarde um instante e tente novamente.",
-              429,
+              insufficient
+                ? `Energia esgotada! Sua recarga automática ocorre em ${rechargeIn}. Resgate um código para ganhar mais agora.`
+                : "Não foi possível validar seus créditos.",
+              insufficient ? 402 : 500,
             );
-          if ((dailyCount ?? 0) >= 3)
-            return jsonError(
-              "Seu acesso gratuito de convidado atingiu o limite atual. Crie uma conta gratuita para continuar.",
-              403,
-            );
-        }
-
-        const { error: spendError } = await supabase.rpc("spend_credits", {
-          _amount: model.credits,
-          _action: "chat",
-          _provider: provider,
-          _model: targetModel,
-          _cost: model.cost,
-        });
-        if (spendError) {
-          const insufficient = spendError.message.includes("INSUFFICIENT_CREDITS");
-          const { data: profile } = insufficient
-            ? await supabase
-                .from("profiles")
-                .select("last_renewal_at,renewal_interval_seconds")
-                .eq("user_id", user.id)
-                .maybeSingle()
-            : { data: null };
-          const nextRenewal = profile
-            ? new Date(profile.last_renewal_at).getTime() + profile.renewal_interval_seconds * 1000
-            : 0;
-          const minutes = Math.max(1, Math.ceil((nextRenewal - Date.now()) / 60_000));
-          const rechargeIn = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-          return jsonError(
-            insufficient
-              ? `Energia esgotada! Sua recarga automática ocorre em ${rechargeIn}. Resgate um código para ganhar mais agora.`
-              : "Não foi possível validar seus créditos.",
-            insufficient ? 402 : 500,
-          );
+          }
         }
 
         const refund = async () => {
+          if (guestMode) {
+            await refundGuest(deviceId!, "chat", model.credits);
+            return;
+          }
           await supabase.rpc("refund_credits", {
             _amount: model.credits,
             _action: "chat_refund",
@@ -183,6 +155,7 @@ export const Route = createFileRoute("/api/chat")({
             _model: targetModel,
           });
         };
+
 
         // 1) Hub models via Lovable AI Gateway
         if (provider === "lovable") {
@@ -213,7 +186,7 @@ export const Route = createFileRoute("/api/chat")({
         // 2) Server secret first, user-provided key as fallback
         const envName = ENV_KEY[provider];
         let apiKey = envName ? process.env[envName] : undefined;
-        if (!apiKey) {
+        if (!apiKey && user) {
           const { data: keyRow } = await supabase
             .from("api_keys")
             .select("secret")
@@ -222,6 +195,7 @@ export const Route = createFileRoute("/api/chat")({
             .maybeSingle();
           apiKey = keyRow?.secret ?? undefined;
         }
+
         if (!apiKey) {
           await refund();
           return jsonError(

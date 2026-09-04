@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as ImagensRouteImport } from './routes/imagens'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiGuestRouteImport } from './routes/api/guest'
 import { Route as ApiImagesRouteImport } from './routes/api/images'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +42,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGuestRoute = ApiGuestRouteImport.update({
+  id: '/api/guest',
+  path: '/api/guest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiImagesRoute = ApiImagesRouteImport.update({
   id: '/api/images',
   path: '/api/images',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/entrar': typeof EntrarRoute
   '/imagens': typeof ImagensRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/guest': typeof ApiGuestRoute
   '/api/images': typeof ApiImagesRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/entrar': typeof EntrarRoute
   '/imagens': typeof ImagensRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/guest': typeof ApiGuestRoute
   '/api/images': typeof ApiImagesRoute
 }
 export interface FileRoutesById {
@@ -70,14 +78,28 @@ export interface FileRoutesById {
   '/entrar': typeof EntrarRoute
   '/imagens': typeof ImagensRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/guest': typeof ApiGuestRoute
   '/api/images': typeof ApiImagesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/admin' | '/entrar' | '/imagens' | '/api/chat' | '/api/images'
+    | '/'
+    | '/admin'
+    | '/entrar'
+    | '/imagens'
+    | '/api/chat'
+    | '/api/guest'
+    | '/api/images'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/entrar' | '/imagens' | '/api/chat' | '/api/images'
+  to:
+    | '/'
+    | '/admin'
+    | '/entrar'
+    | '/imagens'
+    | '/api/chat'
+    | '/api/guest'
+    | '/api/images'
   id:
     | '__root__'
     | '/'
@@ -85,6 +107,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/imagens'
     | '/api/chat'
+    | '/api/guest'
     | '/api/images'
   fileRoutesById: FileRoutesById
 }
@@ -94,6 +117,7 @@ export interface RootRouteChildren {
   EntrarRoute: typeof EntrarRoute
   ImagensRoute: typeof ImagensRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiGuestRoute: typeof ApiGuestRoute
   ApiImagesRoute: typeof ApiImagesRoute
 }
 
@@ -134,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/guest': {
+      id: '/api/guest'
+      path: '/api/guest'
+      fullPath: '/api/guest'
+      preLoaderRoute: typeof ApiGuestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/images': {
       id: '/api/images'
       path: '/api/images'
@@ -150,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   EntrarRoute: EntrarRoute,
   ImagensRoute: ImagensRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiGuestRoute: ApiGuestRoute,
   ApiImagesRoute: ApiImagesRoute,
 }
 export const routeTree = rootRouteImport

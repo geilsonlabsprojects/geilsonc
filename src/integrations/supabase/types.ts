@@ -155,6 +155,45 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_devices: {
+        Row: {
+          blocked_until: string | null
+          created_at: string
+          credits_used: number
+          cycle_started_at: string
+          day: string
+          device_id: string
+          image_count: number
+          last_action_at: string
+          recharge_count: number
+          violations: number
+        }
+        Insert: {
+          blocked_until?: string | null
+          created_at?: string
+          credits_used?: number
+          cycle_started_at?: string
+          day?: string
+          device_id: string
+          image_count?: number
+          last_action_at?: string
+          recharge_count?: number
+          violations?: number
+        }
+        Update: {
+          blocked_until?: string | null
+          created_at?: string
+          credits_used?: number
+          cycle_started_at?: string
+          day?: string
+          device_id?: string
+          image_count?: number
+          last_action_at?: string
+          recharge_count?: number
+          violations?: number
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           attachment_name: string | null
