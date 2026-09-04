@@ -184,7 +184,7 @@ export const Route = createFileRoute("/api/chat")({
         // 2) Server secret first, user-provided key as fallback
         const envName = ENV_KEY[provider];
         let apiKey = envName ? process.env[envName] : undefined;
-        if (!apiKey) {
+        if (!apiKey && user) {
           const { data: keyRow } = await supabase
             .from("api_keys")
             .select("secret")
@@ -193,6 +193,7 @@ export const Route = createFileRoute("/api/chat")({
             .maybeSingle();
           apiKey = keyRow?.secret ?? undefined;
         }
+
         if (!apiKey) {
           await refund();
           return jsonError(
