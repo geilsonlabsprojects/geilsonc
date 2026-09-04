@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { findModel, type ProviderId } from "@/lib/ai";
 import { jsonError, requireUser } from "@/lib/api-auth.server";
+import { consumeGuest, isValidDeviceId, refundGuest } from "@/lib/guest-limits.server";
+
 
 interface Body {
   model: string;
