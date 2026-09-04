@@ -96,15 +96,28 @@ export const Route = createFileRoute("/api/images")({
           return jsonError("O modelo não retornou nenhuma imagem.", 502);
         }
 
-        const { data: row } = await supabase
-          .from("generated_images")
-          .insert({ user_id: user.id, prompt, model: model.id, image_url: url })
-          .select()
-          .maybeSingle();
+        // Guests keep their gallery locally; nothing is persisted in the backend.
+        const { data: row } = guestMode
+          ? { data: null }
+          : await supabase
+              .from("generated_images")
+              .insert({ user_id: user!.id, prompt, model: model.id, image_url: url })
+              .select()
+              .maybeSingle();
 
-        return new Response(JSON.stringify({ image: row ?? { prompt, image_url: url } }), {
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            image: row ?? {
+              id: crypto.randomUUID(),
+              prompt,
+              model: model.id,
+              image_url: url,
+              created_at: new Date().toISOString(),
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+
       },
     },
   },
