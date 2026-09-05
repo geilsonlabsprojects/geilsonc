@@ -317,12 +317,22 @@ export function HubProvider({ children }: { children: ReactNode }) {
     setTab("chat");
   }, []);
 
-  const deleteChat = useCallback(async (id: string) => {
-    await supabase.from("messages").delete().eq("chat_id", id);
-    await supabase.from("chats").delete().eq("id", id);
-    setChats((prev) => prev.filter((c) => c.id !== id));
-    setActiveChatId((cur) => (cur === id ? null : cur));
-  }, []);
+  const deleteChat = useCallback(
+    async (id: string) => {
+      if (user) {
+        await supabase.from("messages").delete().eq("chat_id", id);
+        await supabase.from("chats").delete().eq("id", id);
+      } else {
+        const remaining = getGuestChats().filter((c) => c.id !== id);
+        saveGuestChats(remaining);
+        saveGuestMessages(id, []);
+      }
+      setChats((prev) => prev.filter((c) => c.id !== id));
+      setActiveChatId((cur) => (cur === id ? null : cur));
+    },
+    [user],
+  );
+
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
