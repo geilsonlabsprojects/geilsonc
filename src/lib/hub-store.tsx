@@ -172,9 +172,38 @@ export function HubProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshProfile = useCallback(async () => {
+    if (!user) {
+      if (!guestId) return;
+      try {
+        const res = await fetch("/api/guest", { headers: { "x-guest-id": guestId } });
+        if (!res.ok) return;
+        const state = (await res.json()) as {
+          credits_left: number;
+          base_credits: number;
+          next_renewal_at: string | null;
+        };
+        const interval = 5 * 60 * 60;
+        const next = state.next_renewal_at ? new Date(state.next_renewal_at).getTime() : 0;
+        setProfile({
+          user_id: guestId,
+          display_name: "Visitante",
+          email: null,
+          base_credits: state.base_credits,
+          current_credits: state.credits_left,
+          last_renewal_at: new Date(
+            next ? next - interval * 1000 : Date.now(),
+          ).toISOString(),
+          renewal_interval_seconds: interval,
+          is_guest: true,
+        });
+      } catch {
+        /* offline: keep last known energy */
+      }
+      return;
+    }
     const { data } = await supabase.rpc("sync_credits");
     if (data) setProfile(data as unknown as Profile);
-  }, []);
+  }, [guestId, user]);
 
   useEffect(() => {
     try {
@@ -189,19 +218,26 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setSession(data.session);
-      } else {
-        // The product is usable without an account. Anonymous Supabase users still
-        // receive RLS-scoped storage and credits, rather than sharing guest data.
-        const { data: guest, error } = await supabase.auth.signInAnonymously();
-        if (!error) setSession(guest.session);
-      }
+      if (data.session) setSession(data.session);
+      // The product is usable without an account: guests keep their history in
+      // this browser and their quota is metered server-side, per device id.
+      setGuestId(getOrCreateGuestId());
       setLoading(false);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Guest mode: local history + device quota
+  useEffect(() => {
+    if (user || !guestId) return;
+    setChats(getGuestChats());
+    setImages(getGuestImages());
+    setIsAdmin(false);
+    setActiveChatId((cur) => cur ?? getGuestChats()[0]?.id ?? null);
+    void refreshProfile();
+  }, [guestId, user, refreshProfile]);
+
 
   // Load everything once we have a user
   useEffect(() => {
