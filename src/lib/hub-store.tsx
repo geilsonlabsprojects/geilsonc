@@ -125,6 +125,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [guestId, setGuestId] = useState<string | null>(null);
 
   const [tab, setTab] = useState<TabId>("chat");
   const [model, setModelState] = useState<string>(modelKey(MODELS[0]!));
