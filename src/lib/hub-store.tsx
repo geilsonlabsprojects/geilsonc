@@ -343,26 +343,37 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const sendMessage = useCallback(
     async (text: string, attachment?: Attachment) => {
       const content = text.trim();
-      if ((!content && !attachment) || streaming || !user) return;
+      if ((!content && !attachment) || streaming) return;
+      if (!user && !guestId) return;
       setError(null);
 
+      const title = (content || attachment?.name || "Nova conversa").slice(0, 60);
       let chatId = activeChatId;
       if (!chatId) {
-        const { data: created, error: chatErr } = await supabase
-          .from("chats")
-          .insert({
-            user_id: user.id,
-            title: (content || attachment?.name || "Nova conversa").slice(0, 60),
-          })
-          .select("id,title,updated_at")
-          .maybeSingle();
-        if (chatErr || !created) {
-          setError("Não foi possível criar a conversa.");
-          return;
+        if (user) {
+          const { data: created, error: chatErr } = await supabase
+            .from("chats")
+            .insert({ user_id: user.id, title })
+            .select("id,title,updated_at")
+            .maybeSingle();
+          if (chatErr || !created) {
+            setError("Não foi possível criar a conversa.");
+            return;
+          }
+          chatId = created.id;
+          setChats((prev) => [created, ...prev]);
+          setActiveChatId(created.id);
+        } else {
+          const created: ChatRow = {
+            id: crypto.randomUUID(),
+            title,
+            updated_at: new Date().toISOString(),
+          };
+          chatId = created.id;
+          saveGuestChats([created, ...getGuestChats()]);
+          setChats((prev) => [created, ...prev]);
+          setActiveChatId(created.id);
         }
-        chatId = created.id;
-        setChats((prev) => [created, ...prev]);
-        setActiveChatId(created.id);
       }
 
       const localUser: MessageRow = {
@@ -389,14 +400,19 @@ export function HubProvider({ children }: { children: ReactNode }) {
         },
       ]);
 
-      await supabase.from("messages").insert({
-        chat_id: chatId,
-        user_id: user.id,
-        role: "user",
-        content,
-        attachment_name: attachment?.name ?? null,
-        attachment_url: attachment?.kind === "image" ? (attachment.dataUrl ?? null) : null,
-      });
+      if (user) {
+        await supabase.from("messages").insert({
+          chat_id: chatId,
+          user_id: user.id,
+          role: "user",
+          content,
+          attachment_name: attachment?.name ?? null,
+          attachment_url: attachment?.kind === "image" ? (attachment.dataUrl ?? null) : null,
+        });
+      } else {
+        saveGuestMessages(chatId, [...getGuestMessages(chatId), localUser]);
+      }
+
 
       const history = [...messages, localUser].map((m) => {
         if (m.role === "user" && m === localUser && attachment) {
