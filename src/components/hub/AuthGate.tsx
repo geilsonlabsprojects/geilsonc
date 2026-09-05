@@ -61,15 +61,13 @@ export function AuthGate() {
     }
   };
 
-  const continueAsGuest = async () => {
-    setBusy(true);
+  const continueAsGuest = () => {
     setError(null);
-    const { error: err } = await supabase.auth.signInAnonymously();
-    if (err) {
-      setError("O acesso sem conta não está disponível agora. Entre com e-mail ou Google.");
-    }
-    setBusy(false);
+    // No backend account: history stays in this browser and the free quota is
+    // metered per device by the server.
+    void navigate({ to: "/" });
   };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.18),_transparent_35%),_linear-gradient(to_bottom,_#050816,_#0b1120)] px-3 py-6 sm:px-4 sm:py-8">
