@@ -242,14 +242,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
   // Load everything once we have a user
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      setChats([]);
-      setMessages([]);
-      setImages([]);
-      setIsAdmin(false);
-      return;
-    }
+    if (!user) return;
     void (async () => {
       await refreshProfile();
       await supabase.rpc("claim_first_admin");
@@ -284,6 +277,10 @@ export function HubProvider({ children }: { children: ReactNode }) {
       setMessages([]);
       return;
     }
+    if (!user) {
+      setMessages(getGuestMessages(activeChatId) as MessageRow[]);
+      return;
+    }
     void (async () => {
       const { data } = await supabase
         .from("messages")
@@ -292,14 +289,15 @@ export function HubProvider({ children }: { children: ReactNode }) {
         .order("created_at", { ascending: true });
       setMessages(data ?? []);
     })();
-  }, [activeChatId]);
+  }, [activeChatId, user]);
 
   // Automatic credit refresh polling
   useEffect(() => {
-    if (!user) return;
+    if (!user && !guestId) return;
     const t = setInterval(() => void refreshProfile(), 60_000);
     return () => clearInterval(t);
-  }, [user, refreshProfile]);
+  }, [user, guestId, refreshProfile]);
+
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
