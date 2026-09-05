@@ -19,6 +19,15 @@ import {
   type ProviderId,
 } from "@/lib/ai";
 import { consumeMigratedActiveChatId } from "@/lib/history-sync";
+import {
+  getGuestChats,
+  getGuestImages,
+  getGuestMessages,
+  getOrCreateGuestId,
+  saveGuestChats,
+  saveGuestImages,
+  saveGuestMessages,
+} from "@/lib/guest-mode";
 
 export type TabId = "chat" | "images" | "admin";
 
