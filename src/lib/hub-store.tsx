@@ -80,6 +80,8 @@ interface HubValue {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  /** account-free mode: history lives in this browser, quota is metered per device */
+  isGuest: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 
