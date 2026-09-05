@@ -440,13 +440,14 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
       try {
         const { data: sess } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (sess.session?.access_token)
+          headers["Authorization"] = `Bearer ${sess.session.access_token}`;
+        if (!user && guestId) headers["x-guest-id"] = guestId;
         const res = await fetch("/api/chat", {
           method: "POST",
           signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
-          },
+          headers,
           body: JSON.stringify({
             model,
             messages: [
