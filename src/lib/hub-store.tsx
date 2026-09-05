@@ -143,6 +143,11 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
   const abortRef = useRef<AbortController | null>(null);
   const user = session?.user ?? null;
+  // Stable primitive to depend on: `user`/`session` get a new object identity on every
+  // onAuthStateChange event (including harmless token refreshes), which would otherwise
+  // re-trigger the data-loading effects below mid-conversation and wipe out messages that
+  // hadn't been persisted yet.
+  const userId = user?.id ?? null;
 
   const setModel = useCallback((m: string) => {
     setModelState(m);
@@ -225,7 +230,13 @@ export function HubProvider({ children }: { children: ReactNode }) {
       setGuestId(getOrCreateGuestId());
       setLoading(false);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      // Avoid publishing a brand-new session object (and therefore a brand-new `user`
+      // reference) when it's really the same signed-in user — e.g. INITIAL_SESSION firing
+      // right after our manual getSession() above, or a periodic TOKEN_REFRESHED. Only
+      // swap it in when the account actually changed (sign in/out, switch accounts).
+      setSession((prev) => (prev?.user?.id === (s?.user?.id ?? null) ? prev : s));
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -237,7 +248,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
     setIsAdmin(false);
     setActiveChatId((cur) => cur ?? getGuestChats()[0]?.id ?? null);
     void refreshProfile();
-  }, [guestId, user, refreshProfile]);
+  }, [guestId, userId, refreshProfile]);
 
 
   // Load everything once we have a user
@@ -269,7 +280,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
             : (chatRows?.[0]?.id ?? null),
       );
     })();
-  }, [user, refreshProfile]);
+  }, [userId, refreshProfile]);
 
   // Load messages when the active chat changes
   useEffect(() => {
@@ -281,6 +292,9 @@ export function HubProvider({ children }: { children: ReactNode }) {
       setMessages(getGuestMessages(activeChatId) as MessageRow[]);
       return;
     }
+    // Don't clobber a response that's still streaming into this same chat: a spurious
+    // auth refresh landing mid-stream should not erase the assistant bubble being typed.
+    if (streaming) return;
     void (async () => {
       const { data } = await supabase
         .from("messages")
@@ -289,14 +303,14 @@ export function HubProvider({ children }: { children: ReactNode }) {
         .order("created_at", { ascending: true });
       setMessages(data ?? []);
     })();
-  }, [activeChatId, user]);
+  }, [activeChatId, userId, streaming]);
 
   // Automatic credit refresh polling
   useEffect(() => {
-    if (!user && !guestId) return;
+    if (!userId && !guestId) return;
     const t = setInterval(() => void refreshProfile(), 60_000);
     return () => clearInterval(t);
-  }, [user, guestId, refreshProfile]);
+  }, [userId, guestId, refreshProfile]);
 
 
   const signOut = useCallback(async () => {
