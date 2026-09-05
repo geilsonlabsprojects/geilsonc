@@ -8,6 +8,7 @@ const PROVIDER_COLORS: Record<ProviderId, string> = {
   google: "bg-blue-500",
   groq: "bg-purple-500",
   openrouter: "bg-green-500",
+  mistral: "bg-amber-500",
   openai: "bg-gray-700",
   anthropic: "bg-cyan-500",
 };
@@ -39,20 +40,18 @@ export function ProviderBadge({ model }: { model: string }) {
   );
 }
 
-export function StatusBadges({
-  model,
-  isStreaming,
-}: {
-  model: string;
-  isStreaming?: boolean;
-}) {
+export function StatusBadges({ model, isStreaming }: { model: string; isStreaming?: boolean }) {
   const { isGuest } = useGuestLimits();
 
   return (
     <div className="flex flex-wrap gap-2">
       {isGuest && <GuestBadge />}
       <ProviderBadge model={model} />
-      {isStreaming && <Badge variant="outline" className="text-xs animate-pulse">⟳ Respondendo...</Badge>}
+      {isStreaming && (
+        <Badge variant="outline" className="text-xs animate-pulse">
+          ⟳ Respondendo...
+        </Badge>
+      )}
     </div>
   );
 }

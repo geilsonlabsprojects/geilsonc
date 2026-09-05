@@ -1,11 +1,5 @@
 export type ProviderId =
-  | "lovable"
-  | "hf"
-  | "google"
-  | "groq"
-  | "openrouter"
-  | "openai"
-  | "anthropic";
+  "lovable" | "hf" | "google" | "groq" | "openrouter" | "mistral" | "openai" | "anthropic";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -21,6 +15,7 @@ export const PROVIDERS: ProviderInfo[] = [
   { id: "google", label: "Google Gemini", free: true },
   { id: "groq", label: "Groq", free: true },
   { id: "openrouter", label: "OpenRouter", free: true },
+  { id: "mistral", label: "Mistral", free: true },
   { id: "openai", label: "OpenAI (sua chave)", free: false, keyPlaceholder: "sk-..." },
   { id: "anthropic", label: "Anthropic (sua chave)", free: false, keyPlaceholder: "sk-ant-..." },
 ];
@@ -34,6 +29,14 @@ export interface ModelInfo {
   /** estimated cost per call in USD, used for the admin cost dashboard */
   cost: number;
   vision?: boolean;
+  /**
+   * Equivalent models on other providers, tried in order when this one fails
+   * with a provider-side error (missing/expired key, rate limit, no credit,
+   * upstream outage). Format: "provider:modelId" (see modelKey()). Only used
+   * for the models most likely to hit a single point of failure (Hub models
+   * that depend on one shared gateway key).
+   */
+  fallbacks?: string[];
 }
 
 export const MODELS: ModelInfo[] = [
@@ -46,6 +49,12 @@ export const MODELS: ModelInfo[] = [
     credits: 2,
     cost: 0.001,
     vision: true,
+    fallbacks: [
+      "google:gemini-2.0-flash",
+      "groq:llama-3.1-8b-instant",
+      "mistral:mistral-small-latest",
+      "hf:meta-llama/Llama-3.3-70B-Instruct",
+    ],
   },
   {
     id: "google/gemini-3.7-flash",
@@ -55,6 +64,11 @@ export const MODELS: ModelInfo[] = [
     credits: 2,
     cost: 0.002,
     vision: true,
+    fallbacks: [
+      "google:gemini-2.5-flash",
+      "openrouter:google/gemini-2.5-flash",
+      "groq:llama-3.3-70b-versatile",
+    ],
   },
   {
     id: "google/gemini-3.1-pro-preview",
@@ -64,6 +78,11 @@ export const MODELS: ModelInfo[] = [
     credits: 6,
     cost: 0.012,
     vision: true,
+    fallbacks: [
+      "google:gemini-2.5-pro",
+      "mistral:mistral-large-latest",
+      "openrouter:deepseek/deepseek-chat-v3.1",
+    ],
   },
   {
     id: "openai/gpt-5.6-terra",
@@ -73,6 +92,11 @@ export const MODELS: ModelInfo[] = [
     credits: 5,
     cost: 0.01,
     vision: true,
+    fallbacks: [
+      "mistral:mistral-large-latest",
+      "groq:llama-3.3-70b-versatile",
+      "hf:openai/gpt-oss-120b",
+    ],
   },
   {
     id: "openai/gpt-5.6-luna",
@@ -82,6 +106,11 @@ export const MODELS: ModelInfo[] = [
     credits: 2,
     cost: 0.002,
     vision: true,
+    fallbacks: [
+      "mistral:mistral-small-latest",
+      "groq:llama-3.1-8b-instant",
+      "google:gemini-2.0-flash",
+    ],
   },
   {
     id: "openai/gpt-5.6-sol",
@@ -91,6 +120,11 @@ export const MODELS: ModelInfo[] = [
     credits: 10,
     cost: 0.03,
     vision: true,
+    fallbacks: [
+      "google:gemini-2.5-pro",
+      "mistral:mistral-large-latest",
+      "hf:deepseek-ai/DeepSeek-V3-0324",
+    ],
   },
   // Hugging Face — Inference Providers (chave no servidor)
   {
@@ -194,6 +228,40 @@ export const MODELS: ModelInfo[] = [
     hint: "OpenRouter · multimodal",
     credits: 3,
     cost: 0.002,
+    vision: true,
+  },
+  // Mistral (MISTRAL_API_KEY)
+  {
+    id: "mistral-large-latest",
+    label: "Mistral Large",
+    provider: "mistral",
+    hint: "Mistral · raciocínio e código",
+    credits: 5,
+    cost: 0.006,
+  },
+  {
+    id: "mistral-small-latest",
+    label: "Mistral Small",
+    provider: "mistral",
+    hint: "Mistral · rápido e barato",
+    credits: 1,
+    cost: 0.0006,
+  },
+  {
+    id: "open-mixtral-8x22b",
+    label: "Mixtral 8x22B",
+    provider: "mistral",
+    hint: "Mistral · open source, bom custo-benefício",
+    credits: 2,
+    cost: 0.001,
+  },
+  {
+    id: "pixtral-large-latest",
+    label: "Pixtral Large",
+    provider: "mistral",
+    hint: "Mistral · com visão (imagens)",
+    credits: 4,
+    cost: 0.004,
     vision: true,
   },
   // Bring your own key
