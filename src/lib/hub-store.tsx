@@ -19,6 +19,15 @@ import {
   type ProviderId,
 } from "@/lib/ai";
 import { consumeMigratedActiveChatId } from "@/lib/history-sync";
+import {
+  getGuestChats,
+  getGuestImages,
+  getGuestMessages,
+  getOrCreateGuestId,
+  saveGuestChats,
+  saveGuestImages,
+  saveGuestMessages,
+} from "@/lib/guest-mode";
 
 export type TabId = "chat" | "images" | "admin";
 
@@ -71,6 +80,8 @@ interface HubValue {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  /** account-free mode: history lives in this browser, quota is metered per device */
+  isGuest: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 
@@ -114,6 +125,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [guestId, setGuestId] = useState<string | null>(null);
 
   const [tab, setTab] = useState<TabId>("chat");
   const [model, setModelState] = useState<string>(modelKey(MODELS[0]!));
@@ -161,9 +173,38 @@ export function HubProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshProfile = useCallback(async () => {
+    if (!user) {
+      if (!guestId) return;
+      try {
+        const res = await fetch("/api/guest", { headers: { "x-guest-id": guestId } });
+        if (!res.ok) return;
+        const state = (await res.json()) as {
+          credits_left: number;
+          base_credits: number;
+          next_renewal_at: string | null;
+        };
+        const interval = 5 * 60 * 60;
+        const next = state.next_renewal_at ? new Date(state.next_renewal_at).getTime() : 0;
+        setProfile({
+          user_id: guestId,
+          display_name: "Visitante",
+          email: null,
+          base_credits: state.base_credits,
+          current_credits: state.credits_left,
+          last_renewal_at: new Date(
+            next ? next - interval * 1000 : Date.now(),
+          ).toISOString(),
+          renewal_interval_seconds: interval,
+          is_guest: true,
+        });
+      } catch {
+        /* offline: keep last known energy */
+      }
+      return;
+    }
     const { data } = await supabase.rpc("sync_credits");
     if (data) setProfile(data as unknown as Profile);
-  }, []);
+  }, [guestId, user]);
 
   useEffect(() => {
     try {
@@ -178,30 +219,30 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setSession(data.session);
-      } else {
-        // The product is usable without an account. Anonymous Supabase users still
-        // receive RLS-scoped storage and credits, rather than sharing guest data.
-        const { data: guest, error } = await supabase.auth.signInAnonymously();
-        if (!error) setSession(guest.session);
-      }
+      if (data.session) setSession(data.session);
+      // The product is usable without an account: guests keep their history in
+      // this browser and their quota is metered server-side, per device id.
+      setGuestId(getOrCreateGuestId());
       setLoading(false);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Guest mode: local history + device quota
+  useEffect(() => {
+    if (user || !guestId) return;
+    setChats(getGuestChats());
+    setImages(getGuestImages());
+    setIsAdmin(false);
+    setActiveChatId((cur) => cur ?? getGuestChats()[0]?.id ?? null);
+    void refreshProfile();
+  }, [guestId, user, refreshProfile]);
+
+
   // Load everything once we have a user
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      setChats([]);
-      setMessages([]);
-      setImages([]);
-      setIsAdmin(false);
-      return;
-    }
+    if (!user) return;
     void (async () => {
       await refreshProfile();
       await supabase.rpc("claim_first_admin");
@@ -236,6 +277,10 @@ export function HubProvider({ children }: { children: ReactNode }) {
       setMessages([]);
       return;
     }
+    if (!user) {
+      setMessages(getGuestMessages(activeChatId) as MessageRow[]);
+      return;
+    }
     void (async () => {
       const { data } = await supabase
         .from("messages")
@@ -244,14 +289,15 @@ export function HubProvider({ children }: { children: ReactNode }) {
         .order("created_at", { ascending: true });
       setMessages(data ?? []);
     })();
-  }, [activeChatId]);
+  }, [activeChatId, user]);
 
   // Automatic credit refresh polling
   useEffect(() => {
-    if (!user) return;
+    if (!user && !guestId) return;
     const t = setInterval(() => void refreshProfile(), 60_000);
     return () => clearInterval(t);
-  }, [user, refreshProfile]);
+  }, [user, guestId, refreshProfile]);
+
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -271,12 +317,22 @@ export function HubProvider({ children }: { children: ReactNode }) {
     setTab("chat");
   }, []);
 
-  const deleteChat = useCallback(async (id: string) => {
-    await supabase.from("messages").delete().eq("chat_id", id);
-    await supabase.from("chats").delete().eq("id", id);
-    setChats((prev) => prev.filter((c) => c.id !== id));
-    setActiveChatId((cur) => (cur === id ? null : cur));
-  }, []);
+  const deleteChat = useCallback(
+    async (id: string) => {
+      if (user) {
+        await supabase.from("messages").delete().eq("chat_id", id);
+        await supabase.from("chats").delete().eq("id", id);
+      } else {
+        const remaining = getGuestChats().filter((c) => c.id !== id);
+        saveGuestChats(remaining);
+        saveGuestMessages(id, []);
+      }
+      setChats((prev) => prev.filter((c) => c.id !== id));
+      setActiveChatId((cur) => (cur === id ? null : cur));
+    },
+    [user],
+  );
+
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -287,26 +343,37 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const sendMessage = useCallback(
     async (text: string, attachment?: Attachment) => {
       const content = text.trim();
-      if ((!content && !attachment) || streaming || !user) return;
+      if ((!content && !attachment) || streaming) return;
+      if (!user && !guestId) return;
       setError(null);
 
+      const title = (content || attachment?.name || "Nova conversa").slice(0, 60);
       let chatId = activeChatId;
       if (!chatId) {
-        const { data: created, error: chatErr } = await supabase
-          .from("chats")
-          .insert({
-            user_id: user.id,
-            title: (content || attachment?.name || "Nova conversa").slice(0, 60),
-          })
-          .select("id,title,updated_at")
-          .maybeSingle();
-        if (chatErr || !created) {
-          setError("Não foi possível criar a conversa.");
-          return;
+        if (user) {
+          const { data: created, error: chatErr } = await supabase
+            .from("chats")
+            .insert({ user_id: user.id, title })
+            .select("id,title,updated_at")
+            .maybeSingle();
+          if (chatErr || !created) {
+            setError("Não foi possível criar a conversa.");
+            return;
+          }
+          chatId = created.id;
+          setChats((prev) => [created, ...prev]);
+          setActiveChatId(created.id);
+        } else {
+          const created: ChatRow = {
+            id: crypto.randomUUID(),
+            title,
+            updated_at: new Date().toISOString(),
+          };
+          chatId = created.id;
+          saveGuestChats([created, ...getGuestChats()]);
+          setChats((prev) => [created, ...prev]);
+          setActiveChatId(created.id);
         }
-        chatId = created.id;
-        setChats((prev) => [created, ...prev]);
-        setActiveChatId(created.id);
       }
 
       const localUser: MessageRow = {
@@ -333,14 +400,19 @@ export function HubProvider({ children }: { children: ReactNode }) {
         },
       ]);
 
-      await supabase.from("messages").insert({
-        chat_id: chatId,
-        user_id: user.id,
-        role: "user",
-        content,
-        attachment_name: attachment?.name ?? null,
-        attachment_url: attachment?.kind === "image" ? (attachment.dataUrl ?? null) : null,
-      });
+      if (user) {
+        await supabase.from("messages").insert({
+          chat_id: chatId,
+          user_id: user.id,
+          role: "user",
+          content,
+          attachment_name: attachment?.name ?? null,
+          attachment_url: attachment?.kind === "image" ? (attachment.dataUrl ?? null) : null,
+        });
+      } else {
+        saveGuestMessages(chatId, [...getGuestMessages(chatId), localUser]);
+      }
+
 
       const history = [...messages, localUser].map((m) => {
         if (m.role === "user" && m === localUser && attachment) {
@@ -368,13 +440,14 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
       try {
         const { data: sess } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (sess.session?.access_token)
+          headers["Authorization"] = `Bearer ${sess.session.access_token}`;
+        if (!user && guestId) headers["x-guest-id"] = guestId;
         const res = await fetch("/api/chat", {
           method: "POST",
           signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
-          },
+          headers,
           body: JSON.stringify({
             model,
             messages: [
@@ -424,19 +497,36 @@ export function HubProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (full) {
-          await supabase.from("messages").insert({
-            chat_id: chatId,
-            user_id: user.id,
-            role: "assistant",
-            content: full,
-            model: findModel(model).id,
-          });
+        const assistantRow: MessageRow = {
+          id: assistantLocalId,
+          role: "assistant",
+          content: full,
+          model: findModel(model).id,
+          attachment_name: null,
+          attachment_url: null,
+          created_at: new Date().toISOString(),
+        };
+        if (user) {
+          if (full) {
+            await supabase.from("messages").insert({
+              chat_id: chatId,
+              user_id: user.id,
+              role: "assistant",
+              content: full,
+              model: findModel(model).id,
+            });
+          }
+          await supabase
+            .from("chats")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", chatId);
+        } else {
+          if (full) saveGuestMessages(chatId, [...getGuestMessages(chatId), assistantRow]);
+          const updated = getGuestChats().map((c) =>
+            c.id === chatId ? { ...c, updated_at: new Date().toISOString() } : c,
+          );
+          saveGuestChats(updated);
         }
-        await supabase
-          .from("chats")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", chatId);
         void refreshProfile();
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
@@ -448,28 +538,32 @@ export function HubProvider({ children }: { children: ReactNode }) {
         abortRef.current = null;
       }
     },
-    [activeChatId, messages, model, refreshProfile, streaming, user],
+    [activeChatId, guestId, messages, model, refreshProfile, streaming, user],
   );
 
   const createImage = useCallback(
     async (prompt: string, chosenModel?: string) => {
       const imageModelId = chosenModel ?? imageModel;
-      if (!prompt.trim() || imageLoading || !user) return;
+      if (!prompt.trim() || imageLoading) return;
+      if (!user && !guestId) return;
       setImageError(null);
       setImageLoading(true);
       try {
         const { data: sess } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (sess.session?.access_token)
+          headers["Authorization"] = `Bearer ${sess.session.access_token}`;
+        if (!user && guestId) headers["x-guest-id"] = guestId;
         const res = await fetch("/api/images", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
-          },
+          headers,
           body: JSON.stringify({ prompt, model: imageModelId }),
         });
         const json = (await res.json()) as { image?: ImageRow; error?: string };
         if (!res.ok || !json.image) throw new Error(json.error ?? "Falha ao gerar a imagem.");
-        setImages((prev) => [json.image as ImageRow, ...prev]);
+        const image = json.image;
+        if (!user) saveGuestImages([image, ...getGuestImages()]);
+        setImages((prev) => [image, ...prev]);
         void refreshProfile();
       } catch (err) {
         setImageError((err as Error).message);
@@ -478,28 +572,40 @@ export function HubProvider({ children }: { children: ReactNode }) {
         setImageLoading(false);
       }
     },
-    [imageLoading, imageModel, refreshProfile, user],
+    [guestId, imageLoading, imageModel, refreshProfile, user],
   );
 
-  const deleteImage = useCallback(async (id: string) => {
-    await supabase.from("generated_images").delete().eq("id", id);
-    setImages((prev) => prev.filter((i) => i.id !== id));
-  }, []);
+  const deleteImage = useCallback(
+    async (id: string) => {
+      if (user) await supabase.from("generated_images").delete().eq("id", id);
+      else saveGuestImages(getGuestImages().filter((i) => i.id !== id));
+      setImages((prev) => prev.filter((i) => i.id !== id));
+    },
+    [user],
+  );
 
-  const redeemCode = useCallback(async (code: string) => {
-    const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
-      _code: code.trim(),
-    });
-    if (rpcError) {
-      throw new Error(
-        rpcError.message.includes("INVALID_CODE")
-          ? "Código inválido, expirado ou já utilizado."
-          : "Não foi possível resgatar o código.",
-      );
-    }
-    if (data) setProfile(data as unknown as Profile);
-    return "Código resgatado com sucesso!";
-  }, []);
+
+  const redeemCode = useCallback(
+    async (code: string) => {
+      if (!user)
+        throw new Error("Crie uma conta gratuita para resgatar códigos de energia.");
+      const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
+        _code: code.trim(),
+      });
+      if (rpcError) {
+        throw new Error(
+          rpcError.message.includes("INVALID_CODE")
+            ? "Código inválido, expirado ou já utilizado."
+            : "Não foi possível resgatar o código.",
+        );
+      }
+      if (data) setProfile(data as unknown as Profile);
+      return "Código resgatado com sucesso!";
+    },
+    [user],
+  );
+
+  const isGuest = !user && Boolean(guestId);
 
   const value = useMemo<HubValue>(
     () => ({
@@ -508,6 +614,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       isAdmin,
+      isGuest,
       refreshProfile,
       signOut,
       tab,
@@ -541,6 +648,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       isAdmin,
+      isGuest,
       refreshProfile,
       signOut,
       tab,

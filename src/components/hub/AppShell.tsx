@@ -21,7 +21,7 @@ export function AppShell({
   /** when false the page manages its own scrolling (chat) */
   scroll?: boolean;
 }) {
-  const { loading, user } = useHub();
+  const { loading, user, isGuest } = useHub();
   const [menuOpen, setMenuOpen] = useState(false);
   if (loading) {
     return (
@@ -31,9 +31,9 @@ export function AppShell({
     );
   }
 
-  // Authentication is intentionally optional. If anonymous sign-in is disabled
-  // on an environment, the regular sign-in screen remains the recovery path.
-  if (!user) return <AuthGate />;
+  // Authentication is optional: guests use the app with local history and a
+  // device-metered energy quota. The sign-in screen is only the fallback.
+  if (!user && !isGuest) return <AuthGate />;
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
