@@ -497,19 +497,36 @@ export function HubProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (full) {
-          await supabase.from("messages").insert({
-            chat_id: chatId,
-            user_id: user.id,
-            role: "assistant",
-            content: full,
-            model: findModel(model).id,
-          });
+        const assistantRow: MessageRow = {
+          id: assistantLocalId,
+          role: "assistant",
+          content: full,
+          model: findModel(model).id,
+          attachment_name: null,
+          attachment_url: null,
+          created_at: new Date().toISOString(),
+        };
+        if (user) {
+          if (full) {
+            await supabase.from("messages").insert({
+              chat_id: chatId,
+              user_id: user.id,
+              role: "assistant",
+              content: full,
+              model: findModel(model).id,
+            });
+          }
+          await supabase
+            .from("chats")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", chatId);
+        } else {
+          if (full) saveGuestMessages(chatId, [...getGuestMessages(chatId), assistantRow]);
+          const updated = getGuestChats().map((c) =>
+            c.id === chatId ? { ...c, updated_at: new Date().toISOString() } : c,
+          );
+          saveGuestChats(updated);
         }
-        await supabase
-          .from("chats")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", chatId);
         void refreshProfile();
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
@@ -521,28 +538,32 @@ export function HubProvider({ children }: { children: ReactNode }) {
         abortRef.current = null;
       }
     },
-    [activeChatId, messages, model, refreshProfile, streaming, user],
+    [activeChatId, guestId, messages, model, refreshProfile, streaming, user],
   );
 
   const createImage = useCallback(
     async (prompt: string, chosenModel?: string) => {
       const imageModelId = chosenModel ?? imageModel;
-      if (!prompt.trim() || imageLoading || !user) return;
+      if (!prompt.trim() || imageLoading) return;
+      if (!user && !guestId) return;
       setImageError(null);
       setImageLoading(true);
       try {
         const { data: sess } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (sess.session?.access_token)
+          headers["Authorization"] = `Bearer ${sess.session.access_token}`;
+        if (!user && guestId) headers["x-guest-id"] = guestId;
         const res = await fetch("/api/images", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
-          },
+          headers,
           body: JSON.stringify({ prompt, model: imageModelId }),
         });
         const json = (await res.json()) as { image?: ImageRow; error?: string };
         if (!res.ok || !json.image) throw new Error(json.error ?? "Falha ao gerar a imagem.");
-        setImages((prev) => [json.image as ImageRow, ...prev]);
+        const image = json.image;
+        if (!user) saveGuestImages([image, ...getGuestImages()]);
+        setImages((prev) => [image, ...prev]);
         void refreshProfile();
       } catch (err) {
         setImageError((err as Error).message);
@@ -551,13 +572,18 @@ export function HubProvider({ children }: { children: ReactNode }) {
         setImageLoading(false);
       }
     },
-    [imageLoading, imageModel, refreshProfile, user],
+    [guestId, imageLoading, imageModel, refreshProfile, user],
   );
 
-  const deleteImage = useCallback(async (id: string) => {
-    await supabase.from("generated_images").delete().eq("id", id);
-    setImages((prev) => prev.filter((i) => i.id !== id));
-  }, []);
+  const deleteImage = useCallback(
+    async (id: string) => {
+      if (user) await supabase.from("generated_images").delete().eq("id", id);
+      else saveGuestImages(getGuestImages().filter((i) => i.id !== id));
+      setImages((prev) => prev.filter((i) => i.id !== id));
+    },
+    [user],
+  );
+
 
   const redeemCode = useCallback(async (code: string) => {
     const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
