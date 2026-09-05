@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Bot, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { useHub } from "@/lib/hub-store";
 
 export function AuthGate() {
   const { activeChatId } = useHub();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -125,7 +127,7 @@ export function AuthGate() {
             <Button
               variant="outline"
               className="h-11 w-full gap-2"
-              onClick={() => void continueAsGuest()}
+              onClick={continueAsGuest}
               disabled={busy}
             >
               <Sparkles className="size-4" /> Experimentar sem conta
