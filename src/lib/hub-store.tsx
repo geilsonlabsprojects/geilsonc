@@ -585,20 +585,27 @@ export function HubProvider({ children }: { children: ReactNode }) {
   );
 
 
-  const redeemCode = useCallback(async (code: string) => {
-    const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
-      _code: code.trim(),
-    });
-    if (rpcError) {
-      throw new Error(
-        rpcError.message.includes("INVALID_CODE")
-          ? "Código inválido, expirado ou já utilizado."
-          : "Não foi possível resgatar o código.",
-      );
-    }
-    if (data) setProfile(data as unknown as Profile);
-    return "Código resgatado com sucesso!";
-  }, []);
+  const redeemCode = useCallback(
+    async (code: string) => {
+      if (!user)
+        throw new Error("Crie uma conta gratuita para resgatar códigos de energia.");
+      const { data, error: rpcError } = await supabase.rpc("redeem_access_code", {
+        _code: code.trim(),
+      });
+      if (rpcError) {
+        throw new Error(
+          rpcError.message.includes("INVALID_CODE")
+            ? "Código inválido, expirado ou já utilizado."
+            : "Não foi possível resgatar o código.",
+        );
+      }
+      if (data) setProfile(data as unknown as Profile);
+      return "Código resgatado com sucesso!";
+    },
+    [user],
+  );
+
+  const isGuest = !user && Boolean(guestId);
 
   const value = useMemo<HubValue>(
     () => ({
@@ -607,6 +614,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       isAdmin,
+      isGuest,
       refreshProfile,
       signOut,
       tab,
@@ -640,6 +648,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       isAdmin,
+      isGuest,
       refreshProfile,
       signOut,
       tab,
