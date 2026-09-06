@@ -168,7 +168,7 @@ export function ChatSidebar({ onNavigate }: { onNavigate?: () => void }) {
         )}
       </nav>
 
-      <div className="border-t border-sidebar-border bg-sidebar/60 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
+      <div className="relative z-10 border-t border-sidebar-border bg-sidebar px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
         {profile?.is_guest ? (
           <>
             <p className="px-1 text-[11px] text-muted-foreground">
