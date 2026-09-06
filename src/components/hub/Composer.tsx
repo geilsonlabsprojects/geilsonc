@@ -65,7 +65,7 @@ export function Composer({ showTemplates = false }: { showTemplates?: boolean })
   };
 
   return (
-    <div className="shrink-0 border-t border-border/60 bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-6">
+    <div className="relative z-20 shrink-0 border-t border-border/60 bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6">
       <div className="mx-auto w-full max-w-[820px] space-y-2">
         {showTemplates ? <PromptTemplate onSelect={(p) => setValue((v) => (v ? v + "\n" : "") + p)} /> : null}
 
