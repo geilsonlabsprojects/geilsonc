@@ -26,12 +26,14 @@ export interface GuestMessage {
 }
 
 export const GUEST_LIMITS = {
+  // Kept in sync with GUEST_SERVER_LIMITS in src/lib/guest-limits.server.ts
   chats_per_day: 3,
-  images_per_day: 2,
+  images_per_day: 5,
   max_chat_history: 20,
   credits: 50,
   image_credits: 1,
 } as const;
+
 
 export function getOrCreateGuestId(): string {
   try {

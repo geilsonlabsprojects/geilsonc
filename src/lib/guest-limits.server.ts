@@ -192,14 +192,24 @@ export async function consumeGuest(
     );
   }
 
-  const minuteAgo = Date.now() - 60_000;
-  if (kind === "chat" && new Date(row.last_action_at).getTime() > minuteAgo) {
-    // soft burst guard: at most one request every (60 / burst) seconds
+  // Soft burst guard: at most one request every (60 / burst) seconds.
+  // Only applies once the device has actually used something before — a brand
+  // new row has `last_action_at` set to its creation time, which would
+  // otherwise reject the very first message.
+  const hasPreviousAction = row.credits_used > 0 || row.image_count > 0;
+  if (kind === "chat" && hasPreviousAction) {
     const minGap = 60_000 / GUEST_SERVER_LIMITS.burst_per_minute;
     if (Date.now() - new Date(row.last_action_at).getTime() < minGap) {
-      return deny(429, "Muitas mensagens em pouco tempo. Aguarde alguns segundos e tente de novo.");
+      // Rate limiting is not an abuse attempt: do not count it as a violation.
+      return {
+        ok: false as const,
+        status: 429,
+        message: "Muitas mensagens em pouco tempo. Aguarde alguns segundos e tente de novo.",
+        state: toState(row),
+      };
     }
   }
+
 
   const { data: updated, error } = await db
     .from("guest_devices")

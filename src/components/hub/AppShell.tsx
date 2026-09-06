@@ -52,7 +52,7 @@ export function AppShell({
         <PwaInstallBanner />
 
         <main className="flex min-w-0 flex-1 flex-col min-h-0">
-          <header className="shrink-0 border-b border-border/60 bg-background/85 backdrop-blur">
+          <header className="relative z-20 shrink-0 border-b border-border/60 bg-background">
             <div className="mx-auto flex w-full max-w-[1400px] items-center gap-2 px-3 py-2 sm:px-4 md:px-6">
               <Button
                 variant="ghost"
