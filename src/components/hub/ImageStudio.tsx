@@ -114,9 +114,10 @@ export function ImageStudio() {
 
       {profile?.is_guest ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          Acesso sem conta: até 2 imagens por dia com o modelo básico. Crie uma conta gratuita para
-          salvar mais e usar o modelo avançado.
+          Acesso sem conta: até 5 imagens por dia, salvas só neste aparelho. Crie uma conta gratuita
+          para guardar tudo na nuvem e usar os modelos avançados.
         </p>
+
       ) : null}
 
       {imageError ? (
