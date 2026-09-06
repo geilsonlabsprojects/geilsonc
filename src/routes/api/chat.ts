@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { findModel, type ModelInfo, type ProviderId } from "@/lib/ai";
+import { findModel, PROVIDER_ENV_KEY, type ModelInfo, type ProviderId } from "@/lib/ai";
 import { jsonError, requireUser } from "@/lib/api-auth.server";
 import { consumeGuest, isValidDeviceId, refundGuest } from "@/lib/guest-limits.server";
+import { pickAutoModel } from "@/lib/auto-router.server";
 
 interface Body {
   model: string;
@@ -18,14 +19,7 @@ const OPENAI_COMPATIBLE: Partial<Record<ProviderId, string>> = {
   mistral: "https://api.mistral.ai/v1/chat/completions",
 };
 
-/** Server-side secret used by each provider (never exposed to the client). */
-const ENV_KEY: Partial<Record<ProviderId, string>> = {
-  google: "GEMINI_API_KEY",
-  groq: "GROQ_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  hf: "HUGGING_FACE_API_KEY",
-  mistral: "MISTRAL_API_KEY",
-};
+const ENV_KEY = PROVIDER_ENV_KEY;
 
 const PROVIDER_LABEL: Record<ProviderId, string> = {
   lovable: "Hub",
@@ -99,9 +93,13 @@ export const Route = createFileRoute("/api/chat")({
         const body = (await request.json()) as Body;
         if (!Array.isArray(body.messages) || body.messages.length === 0)
           return jsonError("Envie ao menos uma mensagem para iniciar o chat.", 400);
+        // "model" stays the user's original selection for billing purposes (an "auto"
+        // pick always costs the fixed "auto" credits/cost, regardless of which concrete
+        // model it resolves to) — "resolved" is what actually answers the question.
         const model = findModel(body.model);
-        const provider = model.provider;
-        const targetModel = model.id === "auto" ? "google/gemini-3.7-flash" : model.id;
+        const resolved = model.id === "auto" ? await pickAutoModel(body.messages) : model;
+        const provider = resolved.provider;
+        const targetModel = resolved.id;
         const { data: settings } = guestMode
           ? { data: null }
           : await supabase.from("app_settings").select("system_prompt").eq("id", 1).maybeSingle();
@@ -168,8 +166,7 @@ export const Route = createFileRoute("/api/chat")({
 
         async function attemptModel(candidate: ModelInfo): Promise<Attempt> {
           const candidateProvider = candidate.provider;
-          const candidateTarget =
-            candidate.id === "auto" ? "google/gemini-3.7-flash" : candidate.id;
+          const candidateTarget = candidate.id;
 
           // Hub models via Lovable AI Gateway
           if (candidateProvider === "lovable") {
@@ -272,7 +269,7 @@ export const Route = createFileRoute("/api/chat")({
         // Try the chosen model first, then its declared fallbacks (equivalent
         // models on other providers) until one works. Only refund the user's
         // credits — and only report an error — once every candidate failed.
-        const candidates: ModelInfo[] = [model, ...(model.fallbacks ?? []).map(findModel)];
+        const candidates: ModelInfo[] = [resolved, ...(resolved.fallbacks ?? []).map(findModel)];
         let lastFailure: { provider: ProviderId; status: number; detail: string } | null = null;
 
         for (const candidate of candidates) {

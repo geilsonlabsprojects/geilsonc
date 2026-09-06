@@ -1,0 +1,478 @@
+diff --git a/.env.example b/.env.example
+index d9cb57e..2635672 100644
+--- a/.env.example
++++ b/.env.example
+@@ -11,12 +11,22 @@ LOVABLE_API_KEY=your_lovable_gateway_key
+ 
+ # Optional server-side providers. When absent, users can still use Hub models;
+ # personal OpenAI/Anthropic keys are stored per user in Supabase.
++# GEMINI_API_KEY and HUGGING_FACE_API_KEY also serve as automatic fallbacks for image
++# generation (in this order: Lovable gateway -> Gemini -> Hugging Face) if you want
++# /api/images to survive an outage of the Lovable gateway.
+ GEMINI_API_KEY=
+ GROQ_API_KEY=
+ OPENROUTER_API_KEY=
+ HUGGING_FACE_API_KEY=
+ MISTRAL_API_KEY=
+ 
++# Dedicated keys used ONLY by the "Auto" model router (src/lib/auto-router.server.ts).
++# Separate from GROQ_API_KEY / MISTRAL_API_KEY above so router traffic never competes
++# with (or gets billed alongside) real Groq/Mistral chat answers. When both are absent,
++# "Auto" falls back straight to a fixed default model.
++GROQ_ROUTER_API_KEY=
++MISTRAL_ROUTER_API_KEY=
++
+ # Only needed by server jobs that use the service-role Supabase client or cron verification.
+ SUPABASE_SERVICE_ROLE_KEY=
+ LOVABLE_CRON_SECRET=
+diff --git a/src/lib/ai.ts b/src/lib/ai.ts
+index 0f77c23..394259b 100644
+--- a/src/lib/ai.ts
++++ b/src/lib/ai.ts
+@@ -301,6 +301,17 @@ export const IMAGE_MODELS = [
+   },
+ ] as const;
+ 
++/** Server-side secret used by each provider (never exposed to the client). Shared by
++ * /api/chat.ts (to actually call the provider) and auto-router.server.ts (to know which
++ * providers are even worth offering to the "Auto" router). */
++export const PROVIDER_ENV_KEY: Partial<Record<ProviderId, string>> = {
++  google: "GEMINI_API_KEY",
++  groq: "GROQ_API_KEY",
++  openrouter: "OPENROUTER_API_KEY",
++  hf: "HUGGING_FACE_API_KEY",
++  mistral: "MISTRAL_API_KEY",
++};
++
+ /** Unique key for a model, since some ids exist on more than one provider. */
+ export function modelKey(m: ModelInfo): string {
+   return `${m.provider}:${m.id}`;
+diff --git a/src/lib/auto-router.server.ts b/src/lib/auto-router.server.ts
+new file mode 100644
+index 0000000..059471c
+--- /dev/null
++++ b/src/lib/auto-router.server.ts
+@@ -0,0 +1,185 @@
++import { findModel, modelKey, MODELS, PROVIDER_ENV_KEY, type ModelInfo } from "@/lib/ai";
++
++/**
++ * "Auto" model routing.
++ *
++ * This talks to two *dedicated* keys (GROQ_ROUTER_API_KEY / MISTRAL_ROUTER_API_KEY) that
++ * are separate from GROQ_API_KEY / MISTRAL_API_KEY (the ones used to actually answer a
++ * Groq/Mistral chat). Their only job is a single, cheap classification call: read the
++ * user's prompt and decide which real model in MODELS should answer it. Nothing here
++ * ever streams a final answer to the user — attemptModel() in chat.ts does that, using
++ * whatever model this function returns.
++ */
++
++/** Full candidate pool "auto" is allowed to route into, across every provider the hub
++ * knows how to call — not just the Hub-included ("lovable") models. Billing stays
++ * predictable regardless of which one gets picked: credits/cost are always charged from
++ * the "auto" entry itself (see chat.ts), never from the resolved model. */
++const AUTO_POOL = [
++  "lovable:openai/gpt-5.6-luna",
++  "lovable:google/gemini-3.7-flash",
++  "lovable:openai/gpt-5.6-terra",
++  "lovable:google/gemini-3.1-pro-preview",
++  "lovable:openai/gpt-5.6-sol",
++  "google:gemini-2.0-flash",
++  "google:gemini-2.5-pro",
++  "groq:llama-3.1-8b-instant",
++  "groq:llama-3.3-70b-versatile",
++  "mistral:mistral-small-latest",
++  "mistral:mistral-large-latest",
++  "hf:meta-llama/Llama-3.3-70B-Instruct",
++  "hf:deepseek-ai/DeepSeek-V3-0324",
++  "openrouter:deepseek/deepseek-chat-v3.1",
++] as const;
++
++const DEFAULT_KEY = "lovable:google/gemini-3.7-flash";
++
++/** Only offer the router a provider it can actually reach right now. "lovable" always
++ * qualifies: its own models carry their own cross-provider .fallbacks chain already, so
++ * even a missing LOVABLE_API_KEY degrades gracefully further down in chat.ts. Every other
++ * provider here only qualifies when its *answering* server key is configured — a picked
++ * candidate with no working key would otherwise dead-end with no fallback of its own. */
++function availableCandidates(): string[] {
++  return AUTO_POOL.filter((key) => {
++    const provider = key.split(":")[0] as keyof typeof PROVIDER_ENV_KEY;
++    if (provider === "lovable") return true;
++    const envName = PROVIDER_ENV_KEY[provider];
++    return Boolean(envName && process.env[envName]);
++  });
++}
++
++function buildMenu(candidates: string[]): string {
++  return candidates.map((key) => `- ${key} — ${findModel(key).hint}`).join("\n");
++}
++
++function buildSystemPrompt(candidates: string[]): string {
++  return `Você é um roteador de modelos de IA. Leia a pergunta do usuário e escolha, dentre a lista abaixo, o modelo mais adequado para respondê-la (considere complexidade, se é código, raciocínio profundo, ou algo simples/rápido). A lista inclui modelos de vários provedores diferentes — escolha o que melhor se encaixa, não só os do "Hub".
++
++Modelos disponíveis:
++${buildMenu(candidates)}
++
++Responda SOMENTE com um JSON válido no formato exato {"model":"<chave-da-lista>"}. Nenhum texto antes ou depois.`;
++}
++
++interface RouterAttempt {
++  model: ModelInfo | undefined;
++}
++
++function parseRouterReply(text: string, candidates: string[]): ModelInfo | null {
++  const match = text.match(/\{[^}]*\}/);
++  if (!match) return null;
++  try {
++    const parsed = JSON.parse(match[0]) as { model?: string };
++    if (!parsed.model) return null;
++    const key = parsed.model.trim();
++    if (!candidates.includes(key)) return null;
++    return findModel(key);
++  } catch {
++    return null;
++  }
++}
++
++async function callGroqRouter(prompt: string, candidates: string[]): Promise<RouterAttempt> {
++  const key = process.env["GROQ_ROUTER_API_KEY"];
++  if (!key) return { model: undefined };
++  try {
++    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
++      method: "POST",
++      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
++      body: JSON.stringify({
++        model: "llama-3.1-8b-instant",
++        temperature: 0,
++        max_tokens: 60,
++        messages: [
++          { role: "system", content: buildSystemPrompt(candidates) },
++          { role: "user", content: prompt.slice(0, 2000) },
++        ],
++      }),
++      signal: AbortSignal.timeout(4000),
++    });
++    if (!res.ok) return { model: undefined };
++    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
++    const text = json.choices?.[0]?.message?.content ?? "";
++    return { model: parseRouterReply(text, candidates) ?? undefined };
++  } catch {
++    return { model: undefined };
++  }
++}
++
++async function callMistralRouter(prompt: string, candidates: string[]): Promise<RouterAttempt> {
++  const key = process.env["MISTRAL_ROUTER_API_KEY"];
++  if (!key) return { model: undefined };
++  try {
++    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
++      method: "POST",
++      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
++      body: JSON.stringify({
++        model: "mistral-small-latest",
++        temperature: 0,
++        max_tokens: 60,
++        messages: [
++          { role: "system", content: buildSystemPrompt(candidates) },
++          { role: "user", content: prompt.slice(0, 2000) },
++        ],
++      }),
++      signal: AbortSignal.timeout(4000),
++    });
++    if (!res.ok) return { model: undefined };
++    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
++    const text = json.choices?.[0]?.message?.content ?? "";
++    return { model: parseRouterReply(text, candidates) ?? undefined };
++  } catch {
++    return { model: undefined };
++  }
++}
++
++/** Pulls the plain text out of the last user message, whatever its shape (string, or a
++ * multimodal array of {type:"text"|"image_url", ...} parts). Also reports whether an
++ * image was attached, since neither router model can see images. */
++export function extractLastUserText(messages: Array<{ role: string; content: unknown }>): {
++  text: string;
++  hasImage: boolean;
++} {
++  const last = [...messages].reverse().find((m) => m.role === "user");
++  if (!last) return { text: "", hasImage: false };
++  if (typeof last.content === "string") return { text: last.content, hasImage: false };
++  if (Array.isArray(last.content)) {
++    const parts = last.content as Array<{ type?: string; text?: string }>;
++    const text = parts
++      .filter((p) => p.type === "text")
++      .map((p) => p.text ?? "")
++      .join(" ");
++    const hasImage = parts.some((p) => p.type === "image_url");
++    return { text, hasImage };
++  }
++  return { text: "", hasImage: false };
++}
++
++/**
++ * Resolves "auto" into a concrete model by asking a cheap router LLM to read the prompt.
++ * Falls back, in order: Groq router → Mistral router → a fixed default. An attached
++ * image always short-circuits straight to the default (vision-capable) model, since
++ * the router calls above only exchange text.
++ */
++export async function pickAutoModel(
++  messages: Array<{ role: string; content: unknown }>,
++): Promise<ModelInfo> {
++  const { text, hasImage } = extractLastUserText(messages);
++  if (hasImage || !text.trim()) return findModel(DEFAULT_KEY);
++
++  const candidates = availableCandidates();
++  if (candidates.length === 0) return findModel(DEFAULT_KEY);
++
++  const groq = await callGroqRouter(text, candidates);
++  if (groq.model) return groq.model;
++
++  const mistral = await callMistralRouter(text, candidates);
++  if (mistral.model) return mistral.model;
++
++  return findModel(DEFAULT_KEY);
++}
++
++// Re-exported for tests/tools that want to sanity-check the candidate pool against MODELS.
++export function isKnownAutoCandidate(key: string): boolean {
++  return MODELS.some((m) => modelKey(m) === key);
++}
+diff --git a/src/routes/api/chat.ts b/src/routes/api/chat.ts
+index 029f363..de71f1d 100644
+--- a/src/routes/api/chat.ts
++++ b/src/routes/api/chat.ts
+@@ -1,7 +1,8 @@
+ import { createFileRoute } from "@tanstack/react-router";
+-import { findModel, type ModelInfo, type ProviderId } from "@/lib/ai";
++import { findModel, PROVIDER_ENV_KEY, type ModelInfo, type ProviderId } from "@/lib/ai";
+ import { jsonError, requireUser } from "@/lib/api-auth.server";
+ import { consumeGuest, isValidDeviceId, refundGuest } from "@/lib/guest-limits.server";
++import { pickAutoModel } from "@/lib/auto-router.server";
+ 
+ interface Body {
+   model: string;
+@@ -18,14 +19,7 @@ const OPENAI_COMPATIBLE: Partial<Record<ProviderId, string>> = {
+   mistral: "https://api.mistral.ai/v1/chat/completions",
+ };
+ 
+-/** Server-side secret used by each provider (never exposed to the client). */
+-const ENV_KEY: Partial<Record<ProviderId, string>> = {
+-  google: "GEMINI_API_KEY",
+-  groq: "GROQ_API_KEY",
+-  openrouter: "OPENROUTER_API_KEY",
+-  hf: "HUGGING_FACE_API_KEY",
+-  mistral: "MISTRAL_API_KEY",
+-};
++const ENV_KEY = PROVIDER_ENV_KEY;
+ 
+ const PROVIDER_LABEL: Record<ProviderId, string> = {
+   lovable: "Hub",
+@@ -99,9 +93,13 @@ export const Route = createFileRoute("/api/chat")({
+         const body = (await request.json()) as Body;
+         if (!Array.isArray(body.messages) || body.messages.length === 0)
+           return jsonError("Envie ao menos uma mensagem para iniciar o chat.", 400);
++        // "model" stays the user's original selection for billing purposes (an "auto"
++        // pick always costs the fixed "auto" credits/cost, regardless of which concrete
++        // model it resolves to) — "resolved" is what actually answers the question.
+         const model = findModel(body.model);
+-        const provider = model.provider;
+-        const targetModel = model.id === "auto" ? "google/gemini-3.7-flash" : model.id;
++        const resolved = model.id === "auto" ? await pickAutoModel(body.messages) : model;
++        const provider = resolved.provider;
++        const targetModel = resolved.id;
+         const { data: settings } = guestMode
+           ? { data: null }
+           : await supabase.from("app_settings").select("system_prompt").eq("id", 1).maybeSingle();
+@@ -168,8 +166,7 @@ export const Route = createFileRoute("/api/chat")({
+ 
+         async function attemptModel(candidate: ModelInfo): Promise<Attempt> {
+           const candidateProvider = candidate.provider;
+-          const candidateTarget =
+-            candidate.id === "auto" ? "google/gemini-3.7-flash" : candidate.id;
++          const candidateTarget = candidate.id;
+ 
+           // Hub models via Lovable AI Gateway
+           if (candidateProvider === "lovable") {
+@@ -272,7 +269,7 @@ export const Route = createFileRoute("/api/chat")({
+         // Try the chosen model first, then its declared fallbacks (equivalent
+         // models on other providers) until one works. Only refund the user's
+         // credits — and only report an error — once every candidate failed.
+-        const candidates: ModelInfo[] = [model, ...(model.fallbacks ?? []).map(findModel)];
++        const candidates: ModelInfo[] = [resolved, ...(resolved.fallbacks ?? []).map(findModel)];
+         let lastFailure: { provider: ProviderId; status: number; detail: string } | null = null;
+ 
+         for (const candidate of candidates) {
+diff --git a/src/routes/api/images.ts b/src/routes/api/images.ts
+index 79e38e1..89c1231 100644
+--- a/src/routes/api/images.ts
++++ b/src/routes/api/images.ts
+@@ -58,50 +58,123 @@ export const Route = createFileRoute("/api/images")({
+           });
+         };
+ 
++        /** Result of one attempt: a data-URI image, or a retryable failure. */
++        type Attempt =
++          | { ok: true; url: string; usedModel: string }
++          | { ok: false; status: number; detail: string; noKey?: boolean };
+ 
+-        const key = process.env["LOVABLE_API_KEY"];
+-        if (!key) {
+-          await refund();
+-          return jsonError("Geração de imagens indisponível no momento.", 500);
++        const RETRYABLE_STATUS = new Set([401, 402, 403, 404, 429, 500, 502, 503, 504]);
++
++        // 1) The model the user picked, via the Lovable AI Gateway (Google Nano Banana family).
++        async function attemptLovable(): Promise<Attempt> {
++          const key = process.env["LOVABLE_API_KEY"];
++          if (!key) return { ok: false, status: 500, detail: "", noKey: true };
++          const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
++            method: "POST",
++            headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
++            body: JSON.stringify({
++              model: model.id,
++              messages: [{ role: "user", content: prompt }],
++              modalities: ["image", "text"],
++            }),
++          }).catch(() => null);
++          if (!upstream || !upstream.ok) {
++            const detail = upstream ? await upstream.text().catch(() => "") : "";
++            return { ok: false, status: upstream?.status ?? 503, detail };
++          }
++          const json = (await upstream.json()) as {
++            choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
++          };
++          const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
++          if (!url) return { ok: false, status: 502, detail: "sem imagem na resposta" };
++          return { ok: true, url, usedModel: model.id };
+         }
+ 
+-        const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+-          method: "POST",
+-          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+-          body: JSON.stringify({
+-            model: model.id,
+-            messages: [{ role: "user", content: prompt }],
+-            modalities: ["image", "text"],
+-          }),
+-        });
++        // 2) Fallback: Google's own Gemini image endpoint, using the same GEMINI_API_KEY
++        // already configured for text chat — independent of the Lovable gateway.
++        async function attemptGemini(): Promise<Attempt> {
++          const key = process.env["GEMINI_API_KEY"];
++          if (!key) return { ok: false, status: 500, detail: "", noKey: true };
++          const geminiModel = "gemini-2.5-flash-image";
++          const upstream = await fetch(
++            "https://generativelanguage.googleapis.com/v1beta/openai/images/generations",
++            {
++              method: "POST",
++              headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
++              body: JSON.stringify({
++                model: geminiModel,
++                prompt,
++                response_format: "b64_json",
++                n: 1,
++              }),
++            },
++          ).catch(() => null);
++          if (!upstream || !upstream.ok) {
++            const detail = upstream ? await upstream.text().catch(() => "") : "";
++            return { ok: false, status: upstream?.status ?? 503, detail };
++          }
++          const json = (await upstream.json()) as { data?: Array<{ b64_json?: string }> };
++          const b64 = json.data?.[0]?.b64_json;
++          if (!b64) return { ok: false, status: 502, detail: "sem imagem na resposta" };
++          return { ok: true, url: `data:image/png;base64,${b64}`, usedModel: geminiModel };
++        }
++
++        // 3) Last resort: a real open-weights image model on Hugging Face, using the same
++        // HUGGING_FACE_API_KEY already configured for text chat.
++        async function attemptHuggingFace(): Promise<Attempt> {
++          const key = process.env["HUGGING_FACE_API_KEY"];
++          if (!key) return { ok: false, status: 500, detail: "", noKey: true };
++          const hfModel = "black-forest-labs/FLUX.1-schnell";
++          const upstream = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
++            method: "POST",
++            headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
++            body: JSON.stringify({ inputs: prompt }),
++          }).catch(() => null);
++          if (!upstream || !upstream.ok) {
++            const detail = upstream ? await upstream.text().catch(() => "") : "";
++            return { ok: false, status: upstream?.status ?? 503, detail };
++          }
++          const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
++          const buf = await upstream.arrayBuffer();
++          const b64 = Buffer.from(buf).toString("base64");
++          return { ok: true, url: `data:${contentType};base64,${b64}`, usedModel: hfModel };
++        }
+ 
+-        if (!upstream.ok) {
++        let result: Attempt | null = null;
++        for (const attempt of [attemptLovable, attemptGemini, attemptHuggingFace]) {
++          const r = await attempt();
++          if (r.ok) {
++            result = r;
++            break;
++          }
++          if (!RETRYABLE_STATUS.has(r.status) && !r.noKey) {
++            await refund();
++            if (r.status === 429)
++              return jsonError("Muitas requisições agora. Tente em instantes.", 429);
++            if (r.status === 402) return jsonError("Os créditos de IA acabaram por hoje.", 402);
++            return jsonError(
++              "Não foi possível gerar a imagem no momento. Tente novamente.",
++              r.status,
++            );
++          }
++        }
++
++        if (!result) {
+           await refund();
+-          if (upstream.status === 429)
+-            return jsonError("Muitas requisições agora. Tente em instantes.", 429);
+-          if (upstream.status === 402)
+-            return jsonError("Os créditos de IA do hub acabaram por hoje.", 402);
+           return jsonError(
+-            "Não foi possível gerar a imagem no momento. Tente novamente.",
+-            upstream.status,
++            "Não foi possível gerar a imagem em nenhum provedor disponível no momento. Tente novamente.",
++            502,
+           );
+         }
+ 
+-        const json = (await upstream.json()) as {
+-          choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
+-        };
+-        const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+-        if (!url) {
+-          await refund();
+-          return jsonError("O modelo não retornou nenhuma imagem.", 502);
+-        }
++        const { url, usedModel } = result;
+ 
+         // Guests keep their gallery locally; nothing is persisted in the backend.
+         const { data: row } = guestMode
+           ? { data: null }
+           : await supabase
+               .from("generated_images")
+-              .insert({ user_id: user!.id, prompt, model: model.id, image_url: url })
++              .insert({ user_id: user!.id, prompt, model: usedModel, image_url: url })
+               .select()
+               .maybeSingle();
+ 
+@@ -110,14 +183,13 @@ export const Route = createFileRoute("/api/images")({
+             image: row ?? {
+               id: crypto.randomUUID(),
+               prompt,
+-              model: model.id,
++              model: usedModel,
+               image_url: url,
+               created_at: new Date().toISOString(),
+             },
+           }),
+           { headers: { "Content-Type": "application/json" } },
+         );
+-
+       },
+     },
+   },

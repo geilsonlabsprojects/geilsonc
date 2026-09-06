@@ -301,6 +301,17 @@ export const IMAGE_MODELS = [
   },
 ] as const;
 
+/** Server-side secret used by each provider (never exposed to the client). Shared by
+ * /api/chat.ts (to actually call the provider) and auto-router.server.ts (to know which
+ * providers are even worth offering to the "Auto" router). */
+export const PROVIDER_ENV_KEY: Partial<Record<ProviderId, string>> = {
+  google: "GEMINI_API_KEY",
+  groq: "GROQ_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  hf: "HUGGING_FACE_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+};
+
 /** Unique key for a model, since some ids exist on more than one provider. */
 export function modelKey(m: ModelInfo): string {
   return `${m.provider}:${m.id}`;
